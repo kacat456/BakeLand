@@ -1,0 +1,3204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>异世界面包物语 · 幻想餐饮经营版 v24 品类配方重构版</title>
+<style>
+:root{
+  --ink:#594538;
+  --muted:#9c8471;
+  --paper:#fffaf0;
+  --paper2:#f8efdf;
+  --line:#e8d8c2;
+  --orange:#e5a04d;
+  --green:#a9c8a2;
+  --shadow:0 7px 20px #76563812;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html{ background:#f5ead7; }
+body {
+  font-family: "Hiragino Maru Gothic ProN", "Yu Gothic", "PingFang SC", system-ui, sans-serif;
+  background: #f5ead7;
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+.top-bar {
+  position: sticky;
+  top: 0; left: 0; right: 0;
+  min-height: 70px;
+  padding: 10px 14px;
+  gap: 12px;
+  background: #fffaf0ed;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 4px 16px #7656380c;
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 100;
+}
+.top-bar .date-info { font-size: 11px; color: #9c8064; line-height: 1.65; }
+.top-bar .money-info {
+  font-size: 14px; color: #805b32; font-weight: 700;
+  background: #fff0d5; border: 1px solid #ead4b4;
+  padding: 9px 12px; border-radius: 999px; white-space: nowrap;
+}
+.main-content {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 20px 14px 104px;
+  min-height: calc(100vh - 70px);
+}
+.page { display: none; animation: fadeSlide .22s ease-out; }
+.page.active { display: block; }
+.page-heading {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 10px; margin: 9px 3px 15px;
+}
+.page-heading h1 { font-size: 23px; line-height: 1.25; margin: 0; color: #594538; }
+.page-heading p { font-size: 12px; line-height: 1.65; margin: 6px 0 0; color: #9c8471; }
+.page-stamp { font-size: 9px; letter-spacing: .12em; color: #b99a79; border: 1px solid #e8d8c2; border-radius: 999px; padding: 6px 8px; white-space: nowrap; }
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.card, .shop-scene {
+  background: #fffaf0ed;
+  border: 1px solid var(--line);
+  border-radius: 19px;
+  box-shadow: var(--shadow);
+  padding: 15px;
+  margin-bottom: 13px;
+  color: var(--ink);
+}
+.shop-scene { padding: 14px; overflow: hidden; }
+.card-title {
+  font-size: 14px; font-weight: 700; color: #8e6845;
+  margin-bottom: 11px; display: flex; align-items: center; gap: 8px;
+}
+.btn {
+  font-family: inherit; border: 1px solid transparent; border-radius: 11px;
+  padding: 9px 12px; font-size: 11px; font-weight: 600; cursor: pointer;
+  transition: transform .15s, filter .15s; touch-action: manipulation;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: #e9ae5e; border-color: #d99a48; color: #553b27; }
+.btn-success { background: #dfead5; border-color: #c6d8b8; color: #4f6b43; }
+.btn-danger { background: #f5d9d2; border-color: #e7bfb5; color: #89584e; }
+.btn-small { padding: 8px 10px; font-size: 10px; border-radius: 10px; }
+.status-badge { padding: 5px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; }
+.status-badge.open { background: #e3eedb; color: #55784b; border: 1px solid #cadfbe; }
+.status-badge.closed { background: #f5dfd7; color: #9b6255; border: 1px solid #e8c5b9; }
+.station-box {
+  background: #fff5e3; border: 1px solid #e8d8c2; border-radius: 14px;
+  padding: 12px; margin-bottom: 10px;
+}
+.station-title {
+  font-size: 12px; font-weight: 700; color: #80572f;
+  margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
+}
+.slot-row { display: flex; gap: 9px; flex-wrap: wrap; }
+.work-slot {
+  width: clamp(72px, 20vw, 94px); height: 78px;
+  background: #fffaf0; border: 1px dashed #ddc6a7; border-radius: 12px;
+  color: #92745b; font-size: 11px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; padding: 4px;
+}
+.work-slot.working { background: #ffedc9; border: 1px solid #e8b76d; color: #80572f; }
+.work-slot.finished { background: #e3eedb; border: 1px solid #a9c8a2; color: #4f6b43; cursor: pointer; }
+.work-slot.locked { background: #f2e9dc; border: 1px dashed #cbb59b; color: #a38c75; cursor: pointer; }
+.slot-timer { color: #9a652f; font-size: 10px; margin-top: 3px; }
+.bottom-nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
+  height: auto; min-height: 70px;
+  padding: 7px 7px calc(7px + env(safe-area-inset-bottom));
+  background: #fffaf0f2; border-top: 1px solid var(--line);
+  box-shadow: -5px 20px #7656380b; backdrop-filter: blur(14px);
+  display: flex; justify-content: space-around; align-items: center; overflow-x: auto;
+}
+.nav-item {
+  flex: 1 0 55px; min-width: 0; display: flex; flex-direction: column;
+  align-items: center; gap: 4px; padding: 7px 3px; border-radius: 12px;
+  cursor: pointer; transition: background .15s, color .15s;
+}
+.nav-icon { width: 22px; height: 22px; display: grid; place-items: center; color: #a48b72; }
+.nav-icon svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round; }
+.nav-label { font-size: 10px; color: #a48b72; white-space: nowrap; }
+.nav-item.active { background: #f8e8cd; }
+.nav-item.active .nav-label, .nav-item.active .nav-icon { color: #9b6b36; }
+.tab-header { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 4px; }
+.tab-btn {
+  padding: 6px 12px; font-size: 11px; font-weight: 600;
+  background: #f8efdf; border: 1px solid #e8d8c2; border-radius: 999px;
+  color: #9c8471; cursor: pointer; white-space: nowrap;
+}
+.tab-btn.active { background: #e9ae5e; border-color: #d99a48; color: #553b27; }
+.list-item {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 10px; padding: 12px 0; border-bottom: 1px solid #eee0ce;
+}
+.list-item:last-child { border-bottom: 0; }
+.item-name { font-size: 13px; color: #594538; font-weight: 600; }
+.item-desc { font-size: 11px; line-height: 1.6; color: #9c8471; margin-top: 4px; }
+.item-price { font-size: 12px; color: #a36e31; font-weight: 700; white-space: nowrap; }
+.modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: #58463855; backdrop-filter: blur(5px); z-index: 200;
+  justify-content: center; align-items: center; padding: 14px;
+}
+.modal-overlay.show { display: flex; }
+.modal-content {
+  width: min(100%, 500px); max-height: min(85vh, 740px); overflow: auto;
+  background: #fffaf0; border: 1px solid var(--line); border-radius: 20px;
+  padding: 20px; color: var(--ink); box-shadow: 0 18px 60px #50341f22; position: relative;
+}
+.modal-close {
+  position: absolute; top: 14px; right: 16px; color: #8b6d52;
+  background: #f7ebd8; border-radius: 9px; padding: 2px 9px; font-size: 21px; cursor: pointer;
+}
+.modal-heading { font-size: 21px; margin: 0 0 8px; }
+.modal-copy { font-size: 12px; line-height: 1.75; color: #8d755f; }
+.modal-section { padding: 12px 0; border-top: 1px solid #eee0ce; }
+.partner-card {
+  display: flex; flex-direction: column; gap: 8px; padding: 12px;
+  background: #fff5e3; border: 1px solid #e8d8c2; border-radius: 14px; margin-bottom: 10px;
+}
+.partner-top { display: flex; align-items: center; gap: 10px; }
+.partner-avatar {
+  width: 42px; height: 42px; border-radius: 13px; background: #f1dfbd;
+  border: 1px solid #e7cda7; color: #805b3a; display: grid; place-items: center; font-size: 15px; font-weight: 700; flex-shrink: 0;
+}
+.progress-bar { height: 7px; background: #eee0ce; border-radius: 99px; overflow: hidden; margin-top: 5px; }
+.progress-fill { height: 100%; background: #a8c89e; border-radius: 99px; }
+.customer-card {
+  background: #fff5e3; border: 1px solid #e8d8c2; border-radius: 12px;
+  padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
+}
+
+/* ===== 开屏打字机动画（居中紧凑版·去标点·一屏内） ===== */
+#splash-screen {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+  background: #f5ead7;
+  z-index: 99999;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  padding: 4vh 8vw 8vh;
+  overflow: hidden;
+  transition: opacity 0.8s ease;
+}
+#splash-screen.fade-out { opacity: 0; pointer-events: none; }
+#splash-text {
+  color: #594538;
+  font-family: "Hiragino Maru Gothic ProN", "Yu Gothic", "PingFang SC", system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  max-width: 300px;
+  letter-spacing: 0.03em;
+}
+#splash-text .splash-line {
+  opacity: 0;
+  min-height: 1.3em;
+  margin-bottom: 1px;
+  text-align: center;
+}
+#splash-text .splash-line.show {
+  opacity: 1;
+  animation: splashFadeIn 0.25s ease forwards;
+}
+@keyframes splashFadeIn {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+#splash-cursor {
+  display: inline-block;
+  width: 1px; height: 0.8em;
+  background: #e5a04d;
+  animation: splashBlink 0.6s infinite;
+  vertical-align: text-bottom;
+  margin-left: 1px;
+}
+@keyframes splashBlink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+#splash-skip {
+  position: fixed;
+  bottom: 20px; right: 14px;
+  font-family: "PingFang SC", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
+  font-size: 10px;
+  color: #9c8471;
+  background: transparent;
+  border: 1px solid #e8d8c2;
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+#splash-skip:active { transform: scale(0.95); }
+/* 取名弹窗（实色遮罩，不透底，不含任何默认店名） */
+#name-modal {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: #f5ead7; z-index: 100000;
+  justify-content: center; align-items: center; flex-direction: column;
+  padding: 20px;
+}
+#name-modal.show { display: flex; }
+#name-modal h2 {
+  font-size: 15px; color: #594538; margin-bottom: 14px; font-weight: 700;
+  font-family: "PingFang SC", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
+  text-align: center;
+}
+#name-modal input {
+  width: 260px; max-width: 80vw; padding: 11px 14px;
+  border: 1px solid #e5a04d; border-radius: 10px;
+  background: #fffaf0; color: #594538; font-size: 13px;
+  font-family: "PingFang SC", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
+  outline: none; margin-bottom: 12px; text-align: center;
+}
+#name-modal input:focus { border-color: #d08c3d; }
+#name-modal button {
+  background: #e5a04d; color: #fff; border: none;
+  padding: 10px 28px; border-radius: 999px; font-size: 13px;
+  cursor: pointer;
+  font-family: "PingFang SC", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
+}
+#name-modal button:active { background: #d08c3d; }
+
+
+/* ===== 萌新经营小手机侧边栏样式 (SVG升级版) ===== */
+.mini-phone-container {
+  position: fixed;
+  right: 16px;
+  top: 86px;
+  width: 240px;
+  background: #fffaf0;
+  border: 2px solid #e5a04d;
+  border-radius: 24px;
+  box-shadow: 0 10px 30px rgba(118, 86, 56, 0.18);
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: "Hiragino Maru Gothic ProN", "Yu Gothic", "PingFang SC", system-ui, sans-serif;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.mini-phone-container.minimized {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid #e5a04d;
+  background: #e9ae5e;
+  box-shadow: 0 4px 15px rgba(233, 174, 94, 0.4);
+}
+.mini-phone-container.minimized .phone-inner-content,
+.mini-phone-container.minimized .phone-notch,
+.mini-phone-container.minimized .phone-header {
+  display: none !important;
+}
+.mini-phone-container.minimized::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 26px;
+  height: 26px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='2' width='14' height='20' rx='2' ry='2'%3E%3C/rect%3E%3Cline x1='12' y1='18' x2='12.01' y2='18'%3E%3C/line%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.phone-notch {
+  width: 80px;
+  height: 14px;
+  background: #ead4b4;
+  margin: 6px auto 0;
+  border-radius: 7px;
+}
+.phone-header {
+  padding: 8px 12px 6px;
+  background: #fff0d5;
+  border-bottom: 1px solid #ead4b4;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.phone-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #805b32;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.phone-toggle-btn {
+  background: #f8efdf;
+  border: 1px solid #e8d8c2;
+  color: #805b32;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 12px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 0.2s;
+}
+.phone-toggle-btn:hover {
+  background: #e9ae5e;
+  color: #fff;
+}
+.phone-inner-content {
+  padding: 10px;
+  max-height: 380px;
+  overflow-y: auto;
+  font-size: 11px;
+  color: #594538;
+}
+.phone-step-item {
+  background: #fff5e3;
+  border: 1px solid #e8d8c2;
+  border-radius: 10px;
+  padding: 8px;
+  margin-bottom: 8px;
+  transition: all 0.2s;
+}
+.phone-step-item.completed {
+  background: #e3eedb;
+  border-color: #c6d8b8;
+  opacity: 0.85;
+}
+.phone-step-title {
+  font-weight: 700;
+  color: #80572f;
+  margin-bottom: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.phone-step-desc {
+  font-size: 10px;
+  color: #9c8471;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+.phone-step-action {
+  background: #e9ae5e;
+  color: #553b27;
+  border: none;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-block;
+}
+.phone-step-action:active {
+  transform: scale(0.95);
+}
+
+@media (max-width: 900px) {
+  .mini-phone-container {
+    right: 10px;
+    top: 75px;
+    width: 210px;
+  }
+}
+
+</style>
+</head>
+<body>
+
+<!-- 开屏打字机动画（仅新增，原页面结构未改动） -->
+<div id="splash-screen">
+  <div id="splash-text"></div>
+  <button id="splash-skip" onclick="skipSplash()">跳过</button>
+</div>
+
+<!-- 萌新经营小手机侧边栏 -->
+
+<!-- 萌新经营小手机侧边栏 (SVG升级版) -->
+<div class="mini-phone-container" id="miniPhone" style="display:none;" onclick="handlePhoneContainerClick(event)">
+  <div class="phone-notch"></div>
+  <div class="phone-header">
+    <div class="phone-title">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%23805b32" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+      萌新经营助手
+    </div>
+    <button class="phone-toggle-btn" onclick="event.stopPropagation(); toggleMiniPhone();" title="收起">×</button>
+  </div>
+  <div class="phone-inner-content" id="phoneStepsList">
+    <!-- Steps rendered dynamically -->
+  </div>
+</div>
+>
+
+<div id="name-modal">
+  <h2>为你的餐厅取一个名字</h2>
+  <input type="text" id="startup-shop-name" placeholder="例如 梦幻餐饮屋" maxlength="12">
+  <button onclick="confirmStartupName()">开始经营</button>
+</div>
+
+<div class="top-bar" style="display:none;" id="game-top-bar">
+  <div class="date-info">
+    <div id="dayDisplay">第1天 · 早晨</div>
+    <div id="weatherDisplay">晴朗微风</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:7px;">
+    <div class="money-info" id="moneyDisplay">200 铜币</div>
+    <button class="btn btn-primary btn-small" onclick="openSettings()">设置与存档</button>
+  </div>
+</div>
+
+<div class="main-content" style="display:none;" id="game-main-content">
+  <div class="page active" id="page-shop">
+    <div class="page-heading">
+      <div><h1 id="shopTitleDisplay">梦幻餐饮屋</h1><p>晨曦镇的复合型幻想餐饮店，伙伴自动化接单与上菜系统已上线。</p></div>
+      <span class="page-stamp">FANTASY TAVERN</span>
+    </div>
+    <div class="shop-scene">
+      <div style="font-size:18px;font-weight:600;margin-bottom:8px;text-align:center;" id="shopSubTitle">小圆的梦幻餐饮屋</div>
+      <div class="shop-status" style="display:flex;justify-content:center;align-items:center;gap:10px;margin-bottom:12px;">
+        <span class="status-badge closed" id="shopStatus">已关门</span>
+        <span style="font-size:12px;color:#9c8471;" id="todaySales">今日销售: 0</span>
+      </div>
+      
+      <!-- Customer Queue Display -->
+      <div class="card" style="margin-bottom:12px;background:#fffaf0;">
+        <div class="card-title" style="margin-bottom:6px;">大厅顾客排队区（等待接待与点单）</div>
+        <div id="customerQueueContainer"><div style="font-size:11px;color:#9c8471;text-align:center;padding:8px;">当前暂无顾客进店，开门营业后将陆续有客流造访。</div></div>
+      </div>
+
+      <div id="homeStationsContainer"></div>
+
+      <!-- Manual Next Day & Shop Controls -->
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px;">
+        <button class="btn btn-primary btn-small" onclick="toggleShop()">开门/关门营业</button>
+        <button class="btn btn-primary btn-small" style="background:#80572f;color:#fff;" onclick="manualNextDay()">☀️ 手动进入下一天</button>
+        <button class="btn btn-danger btn-small" onclick="closeShopAndSettle()">🌙 打烊休息结算</button>
+        <button class="btn btn-success btn-small" onclick="showPage('page-bake', document.querySelectorAll('.nav-item')[1])">去制作/研发</button>
+        <button class="btn btn-small" style="background:#faebd7;border-color:#e2ceb0;" onclick="quickSell()">一键上架库存</button>
+        <button class="btn btn-small" style="background:#e3eedb;border-color:#cadfbe;color:#55784b;" onclick="drawWater()">水井打水</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">餐饮区域与餐厅氛围</div>
+      <div class="item-desc" style="margin-bottom:8px;" id="atmosphereDesc">当前店铺氛围值：0 点（可通过装修购买各类氛围布置及升级桌椅提升）。</div>
+      <div id="activeEventDisplay" style="font-size:12px;color:#a36e31;font-weight:600;padding:6px;background:#fff2dd;border-radius:8px;">当前无突发随机事件，客流平稳。</div>
+    </div>
+    <div class="card">
+      <div class="card-title">经营概况</div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:13px;color:#9c8471;">营收</span><span style="font-size:13px;" id="todayRevenue">0 铜币</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:13px;color:#9c8471;">成本</span><span style="font-size:13px;" id="todayCost">0 铜币</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="font-size:13px;color:#9c8471;">利润</span><span style="font-size:13px;color:#55784b;" id="todayProfit">0 铜币</span></div>
+    </div>
+  </div>
+
+  <div class="page" id="page-bake">
+    <div class="page-heading">
+      <div><h1>万物自由配方研发工坊</h1><p>基底×做法×风味 三合一品类引擎 · 欧式菜单自动命名 · 同组合自动换品类 · 完全同名绝不重复！</p></div>
+      <span class="page-stamp">WORKSHOP & LAB</span>
+    </div>
+    <div class="card">
+    <div class="card-title">自由配方灵光研发（品类引擎 · 全量材料）</div>
+    <div class="item-desc" style="margin-bottom:10px;">投入材料后系统自动判定：<b>基底决定品类</b>（面粉→贝果/可颂/吐司/塔/披萨/珍珠/芋圆…，茶叶→奶茶/果茶/纯茶/冷萃/奶盖…，大米→烩饭/炒饭/粥/饭团…），<b>做法决定形态</b>（灶台可出凉拌·炒菜·热菜·炖菜·炖汤），<b>辅料决定风味</b>（用肉名、果名、欧式地名命名，绝不出现"面粉饼"这类原料名）。<br>· 吧台<b>只做饮品</b>，面粉/米/肉/蔬菜一律进不去；<br>· 已出过的菜名<b>永不复现</b>，同一组合自动换品类或换风味，直到这个组合被研发到底。</div>
+      
+      <div style="margin-bottom:10px;">
+        <label style="font-size:11px;font-weight:600;color:#80572f;display:block;margin-bottom:4px;">1. 选择目标制作区域：</label>
+        <select id="labStation" style="width:100%;padding:8px;border-radius:8px;border:1px solid #e8d8c2;background:#fffaf0;font-size:11px;font-weight:600;color:#80572f;">
+          <option value="oven">🔥 魔法烤箱 (烘焙/甜点区 - 支持肉馅酥饼、肉派、面点)</option>
+          <option value="bar">🍹 精灵吧台 (特饮/饮品区 - 严禁面粉/大米/纯肉类/生蔬菜，仅限水果/茶叶/奶/糖/水)</option>
+          <option value="stove">🍲 魔法灶台 (主食/热菜区 - 荤素全能大炒与慢炖)</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:10px;background:#fef4e8;border:1px solid #ead4b4;border-radius:10px;padding:8px 10px;">
+        <label style="font-size:11px;font-weight:700;color:#805b32;display:block;margin-bottom:4px;">2. 选择研发预算投入（决定成品质感与阶梯命名）：</label>
+        <select id="labBudget" style="width:100%;padding:8px;border-radius:8px;border:1px solid #e8d8c2;background:#fffaf0;font-size:11px;font-weight:600;color:#805b32;">
+          <option value="20">🪙 20铜币 · 基础研发（日常标准质感，精简命名）</option>
+          <option value="60">🪙 60铜币 · 精良研发（资深工匠操刀，品质提升）</option>
+          <option value="150">🪙 150铜币 · 史诗研发（皇家烘焙大师主理，至臻奢华命名与超高售价）</option>
+        </select>
+      </div>
+
+      <div style="background:#f8efdf;border:1px solid #e8d8c2;border-radius:12px;padding:10px;margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:700;color:#8e6845;margin-bottom:6px;">3. 选择主料 A：</div>
+        <div class="tab-header" id="matATabs" style="margin-bottom:8px;">
+          <button class="tab-btn active" onclick="switchMatATab('staple')">基础主食</button>
+          <button class="tab-btn" onclick="switchMatATab('meat')">肉禽海鲜</button>
+          <button class="tab-btn" onclick="switchMatATab('veg')">蔬菜果物</button>
+          <button class="tab-btn" onclick="switchMatATab('condiment')">调料饮品</button>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <select id="labMatA" style="flex:1;padding:8px;border-radius:8px;border:1px solid #e8d8c2;background:#fffaf0;font-size:11px;font-weight:600;">
+            <option value="">请选择主料A...</option>
+          </select>
+          <span id="matADesc" style="font-size:10px;color:#9c8471;white-space:nowrap;">已选: 无</span>
+        </div>
+      </div>
+
+      <div style="background:#f8efdf;border:1px solid #e8d8c2;border-radius:12px;padding:10px;margin-bottom:12px;">
+        <div style="font-size:11px;font-weight:700;color:#8e6845;margin-bottom:6px;">4. 选择辅料 B (可与主料相同，支持同物重叠)：</div>
+        <div class="tab-header" id="matBTabs" style="margin-bottom:8px;">
+          <button class="tab-btn active" onclick="switchMatBTab('staple')">基础主食</button>
+          <button class="tab-btn" onclick="switchMatBTab('meat')">肉禽海鲜</button>
+          <button class="tab-btn" onclick="switchMatBTab('veg')">蔬菜果物</button>
+          <button class="tab-btn" onclick="switchMatBTab('condiment')">调料饮品</button>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <select id="labMatB" style="flex:1;padding:8px;border-radius:8px;border:1px solid #e8d8c2;background:#fffaf0;font-size:11px;font-weight:600;">
+            <option value="">请选择辅料B...</option>
+          </select>
+          <span id="matBDesc" style="font-size:10px;color:#9c8471;white-space:nowrap;">已选: 无</span>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" style="width:100%;padding:10px;font-size:12px;" onclick="tryResearch()">✨ 支付预算并开始区域灵光研发</button>
+    </div>
+    <div class="card"><div class="card-title">各区域制作槽管理（卡死防范与成品回收）</div><div id="workshopSlotsList"></div></div>
+    <div class="card"><div class="card-title">已解锁菜单与快速烹饪</div><div id="recipeList"></div></div>
+  </div>
+
+  <div class="page" id="page-market">
+    <div class="page-heading">
+      <div><h1>晨曦集市</h1><p>采购各类幻想食材、肉禽海鲜、蔬菜果物、调料饮品与餐厅氛围布置。</p></div>
+      <span class="page-stamp">MARKETPLACE</span>
+    </div>
+    <div class="card">
+      <div class="card-title">采购原料与氛围布置</div>
+      <div class="tab-header" id="marketTabs">
+        <button class="tab-btn active" onclick="switchMarketTab('staple')">基础主食</button>
+        <button class="tab-btn" onclick="switchMarketTab('meat')">肉禽海鲜</button>
+        <button class="tab-btn" onclick="switchMarketTab('veg')">蔬菜果物</button>
+        <button class="tab-btn" onclick="switchMarketTab('condiment')">调料饮品</button>
+        <button class="tab-btn" onclick="switchMarketTab('atmosphere')">餐厅氛围布置</button>
+      </div>
+      <div id="marketItemList"></div>
+    </div>
+    <div class="card"><div class="card-title">出售成品料理</div><div id="sellList"></div></div>
+  </div>
+
+  <div class="page" id="page-explore">
+    <div class="page-heading">
+      <div><h1>异世界探索</h1><p>派遣外派探险队员前往不同等级的异世界区域获取丰富的高级幻想材料！</p></div>
+      <span class="page-stamp">EXPEDITION</span>
+    </div>
+    <div class="card">
+      <div class="card-title">派遣探索队伍</div>
+      <div id="exploreTeamSetup" style="margin-bottom:12px;padding:10px;background:#f8efdf;border-radius:12px;"></div>
+    </div>
+    <div class="card"><div class="card-title">可探索异世界区域</div><div id="areaList"></div></div>
+    <div class="card"><div class="card-title">当前进行中的远征队伍</div><div id="activeExpeditionsList"></div></div>
+  </div>
+
+  <div class="page" id="page-partners">
+    <div class="page-heading">
+      <div><h1>伙伴、帮工与员工管理</h1><p>通过严格分类标签页管理厨师、销售与采集员，并享受各职业专属加成体系！</p></div>
+      <span class="page-stamp">COMMUNITY & STAFF</span>
+    </div>
+    <div class="card">
+      <div class="card-title">员工派遣与职业加成管理中心</div>
+      <div class="tab-header" id="staffTabs">
+        <button class="tab-btn active" onclick="switchStaffTab('all')">全部员工</button>
+        <button class="tab-btn" onclick="switchStaffTab('chef')">🧑‍🍳 厨师/帮厨</button>
+        <button class="tab-btn" onclick="switchStaffTab('sales')">💬 销售/接待</button>
+        <button class="tab-btn" onclick="switchStaffTab('expedition')">⛰️ 外派采集</button>
+      </div>
+      <div id="partnerManagementList"></div>
+    </div>
+    <div class="card"><div class="card-title">小镇居民与好感度</div><div id="residentList"></div></div>
+  </div>
+
+  <div class="page" id="page-decorate">
+    <div class="page-heading">
+      <div><h1>餐饮区装修与桌椅升级</h1><p>购买魔法烤箱、精灵吧台、魔法灶台及桌椅升级体系！</p></div>
+      <span class="page-stamp">DECORATION</span>
+    </div>
+    <div class="card"><div class="card-title">设备与桌椅装潢升级中心</div><div id="decorateList"></div></div>
+  </div>
+
+  <div class="page" id="page-inventory">
+    <div class="page-heading">
+      <div><h1>行囊与仓库</h1><p>查看当前持有的原材料、纯净水与幻想料理成品。</p></div>
+      <span class="page-stamp">INVENTORY</span>
+    </div>
+    <div class="card"><div class="card-title">背包道具栏</div><div id="inventoryList"></div></div>
+  </div>
+
+  <div class="page" id="page-quest">
+    <div class="page-heading">
+      <div><h1>小镇餐饮委托</h1><p>完成居民与旅人的特殊餐饮订单，获取丰厚报酬与声誉。</p></div>
+      <span class="page-stamp">QUESTS</span>
+    </div>
+    <div class="card"><div class="card-title">悬赏委托板</div><div id="questList"></div></div>
+  </div>
+
+  <div class="page" id="page-codex">
+    <div class="page-heading">
+      <div><h1>幻想食谱图鉴</h1><p>记录已解锁的异世界餐饮配方与风味见闻。</p></div>
+      <span class="page-stamp">CODEX</span>
+    </div>
+    <div class="card"><div class="card-title">食谱与料理图鉴</div><div id="codexList"></div></div>
+  </div>
+
+  <div class="page" id="page-status">
+    <div class="page-heading">
+      <div><h1>经营记录</h1><p>检视你的店铺成长数据与成就勋章。</p></div>
+      <span class="page-stamp">RECORDS</span>
+    </div>
+    <div class="card"><div class="card-title">店铺统计</div><div id="statusData"></div></div>
+    <div class="card"><div class="card-title">成就奖励</div><div id="achievementList"></div></div>
+  </div>
+</div>
+
+<div class="bottom-nav" style="display:none;" id="game-bottom-nav" aria-label="主导航">
+  <div class="nav-item active" onclick="showPage('page-shop', event.currentTarget)"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5M5.5 9.5V21h13V9.5M9 21v-7h6v7"/></svg></span><span class="nav-label">店铺</span></div>
+  <div class="nav-item" onclick="showPage('page-bake', event.currentTarget)"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 8h16v12H4zM7 8V5h10v3M8 12h8M8 16h5"/></svg></span><span class="nav-label">工坊</span></div>
+  <div class="nav-item" onclick="showPage('page-market', event.currentTarget)"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 9h16l-1 12H5L4 9ZM3 9l2-6h14l2 6M9 9V3M15 9V3M9 13v4M15 13v4"/></svg></span><span class="nav-label">集市</span></div>
+  <div class="nav-item" onclick="showPage('page-explore', event.currentTarget)"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15"/></svg></span><span class="nav-label">探索</span></div>
+  <div class="nav-item" onclick="showPage('page-partners', event.currentTarget)"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5.5a3 3 0 0 1 0 5.8M18 15a4 4 0 0 1 3 4v1"/></svg></span><span class="nav-label">伙伴</span></div>
+  <div class="nav-item" onclick="showPage('page-decorate', event.currentTarget)"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 20V5h16v15M4 10h16M9 5v5M15 5v5M8 20v-5h8v5"/></svg></span><span class="nav-label">装修</span></div>
+  <div class="nav-item" onclick="showPage('page-inventory', event.currentTarget)"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="m3 7 9-4 9 4-9 4-9-4ZM3 7v10l9 4 9-4V7M12 11v10"/></svg></span><span class="nav-label">行囊</span></div>
+  <div class="nav-item" onclick="showPage('page-quest', event.currentTarget)"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M5 3h14v18l-7-4-7 4zM8 8h8M8 12h6"/></svg></span><span class="nav-label">委托</span></div>
+  <div class="nav-item" onclick="showPage('page-codex', event.currentTarget)"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 4h7a3 3 0 0 1 3 3v13a3 3 0 0 0-3-3H4zM20 4h-3a3 3 0 0 0-3 3v13a3 3 0 0 1 3-3h3z"/></svg></span><span class="nav-label">图鉴</span></div>
+  <div class="nav-item" onclick="showPage('page-status', event.currentTarget)"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 20V12h4v8M10 20V5h4v15M16 20V9h4v11"/></svg></span><span class="nav-label">记录</span></div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal-content" id="modalBody">
+    <span class="modal-close" onclick="closeModal()">×</span>
+  </div>
+</div>
+
+<script>
+
+/* ===== 开屏打字机动画（居中紧凑版·去标点·一屏内） ===== */
+const splashLines = [
+  "在某个遥远的世界里",
+  "藏着一间特别的小店",
+  "",
+  "这里有会发光的奇妙食材",
+  "有只在月夜盛开的花朵",
+  "也有来自不同地方的旅人",
+  "",
+  "传说只要用心制作食物",
+  "就能创造出连魔法都无法代替的奇迹",
+  "",
+  "而现在",
+  "一间沉寂已久的小店",
+  "终于等来了它的新主人",
+  "",
+  "那个人就是你",
+  "",
+  "欢迎来到这个充满未知与惊喜的世界",
+  "",
+  "从今天起",
+  "你将拥有属于自己的餐厅",
+  "",
+  "你可以制作美味的面包",
+  "研发从未见过的料理",
+  "调制奇妙的饮品",
+  "也可以踏上旅途寻找稀有食材",
+  "结识新的伙伴",
+  "",
+  "至于这间餐厅最终会变成什么模样",
+  "",
+  "就由你来决定"
+];
+
+let splashDone = false;
+
+function startSplash() {
+  const textEl = document.getElementById('splash-text');
+  if (!textEl) return;
+  textEl.innerHTML = '';
+  let lineIdx = 0;
+
+  function typeNextLine() {
+    if (splashDone || lineIdx >= splashLines.length) {
+      if (!splashDone) setTimeout(showNameModal, 380);
+      return;
+    }
+    const line = splashLines[lineIdx];
+    const lineDiv = document.createElement('div');
+    lineDiv.className = 'splash-line';
+    lineDiv.style.textAlign = 'center';
+    textEl.appendChild(lineDiv);
+
+    if (line === "") {
+      lineDiv.innerHTML = '&nbsp;';
+      lineDiv.classList.add('show');
+      lineIdx++;
+      setTimeout(typeNextLine, 80);
+      return;
+    }
+
+    const cursor = document.createElement('span');
+    cursor.id = 'splash-cursor';
+    lineDiv.appendChild(cursor);
+
+    let charIdx = 0;
+    const typeChar = setInterval(() => {
+      if (splashDone) { clearInterval(typeChar); return; }
+      if (charIdx >= line.length) {
+        clearInterval(typeChar);
+        cursor.remove();
+        lineDiv.classList.add('show');
+        lineIdx++;
+        setTimeout(typeNextLine, 170);
+        return;
+      }
+      const charSpan = document.createElement('span');
+      charSpan.textContent = line[charIdx];
+      lineDiv.insertBefore(charSpan, cursor);
+      charIdx++;
+    }, 38);
+  }
+
+  typeNextLine();
+}
+
+function skipSplash() {
+  if (splashDone) return;
+  splashDone = true;
+  const screen = document.getElementById('splash-screen');
+  if (screen) {
+    screen.classList.add('fade-out');
+    setTimeout(() => { screen.style.display = 'none'; showNameModal(); }, 800);
+  }
+}
+
+function showNameModal() {
+  splashDone = true;
+  const screen = document.getElementById('splash-screen');
+  if (screen) {
+    screen.classList.add('fade-out');
+    setTimeout(() => {
+      screen.style.display = 'none';
+      const modal = document.getElementById('name-modal');
+      if (modal) {
+        modal.classList.add('show');
+        const input = document.getElementById('startup-shop-name');
+        if (input) input.focus();
+      }
+    }, 800);
+  }
+}
+
+
+function confirmStartupName() {
+  const input = document.getElementById('startup-shop-name');
+  const name = input ? input.value.trim() : '';
+  if (!name) { alert('请为餐厅取一个名字吧'); return; }
+  game.shopName = name;
+  const titleEl = document.getElementById('shopTitleDisplay');
+  const subEl = document.getElementById('shopSubTitle');
+  if (titleEl) titleEl.textContent = name;
+  if (subEl) subEl.textContent = name;
+  const modal = document.getElementById('name-modal');
+  if (modal) modal.classList.remove('show');
+  
+  // Show main game interface & mini-phone guide smoothly
+  const topBar = document.getElementById('game-top-bar');
+  const mainContent = document.getElementById('game-main-content');
+  const bottomNav = document.getElementById('game-bottom-nav');
+  const miniPhone = document.getElementById('miniPhone');
+  if (topBar) topBar.style.display = 'flex';
+  if (mainContent) mainContent.style.display = 'block';
+  if (bottomNav) bottomNav.style.display = 'flex';
+  if (miniPhone) miniPhone.style.display = 'flex';
+
+  renderShop(); renderMiniPhoneGuide();
+  renderMiniPhoneGuide();
+}
+
+/* ===== 开屏动画结束 ===== */
+
+let currentSlot = 'slot1'; 
+let currentMarketTab = 'staple';
+let currentStaffTabKey = 'all';
+let currentMatATabKey = 'staple';
+let currentMatBTabKey = 'staple';
+
+let game = {
+  shopName: "梦幻餐饮屋",
+  day: 1,
+  timeOfDay: 0, 
+  weather: 0, 
+  money: 200, 
+  shopOpen: false,
+  todaySold: 0,
+  todayRevenue: 0,
+  todayCost: 0,
+  totalBaked: 0,
+  totalSold: 0,
+  shopLevel: 1,
+  reputation: 0,
+  atmosphere: 0,
+  currentEvent: "店铺客流平稳，环境舒适。",
+  
+  ovens: [
+    { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null },
+    { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null },
+    { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null }
+  ],
+  bars: [
+    { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null },
+    { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null },
+    { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null }
+  ],
+  stoves: [
+    { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null },
+    { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null },
+    { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null }
+  ],
+
+  customers: [],
+
+  inventory: {
+    '面粉': 8, '牛奶': 5, '鸡蛋': 5, '黄油': 4, '糖': 5, '水': 10,
+    '蜂蜜': 3, '月光莓': 2, '火蜥蜴香料': 1, '星辉花粉': 1,
+    '黑麦': 5, '海妖之泪（盐）': 5, '大米': 5, '茶叶': 4, '莓果': 4, '龙焰果': 1,
+    '烈焰野牛肉': 3, '霜寒咕咕鸡': 3, '史莱姆凝胶肉': 3, '发光蘑菇': 3, '精灵生菜': 4, '黄金土豆': 3, '星辰碎糖': 2, '蚝油': 3
+  },
+
+  recipes: {
+    '黑麦粗面包': { category: '烘焙', station: 'oven', ingredients: {'黑麦':1,'水':1}, time: 30, sellPrice: 8, unlocked: true, desc: '质朴管饱的传统黑麦面包。' },
+    '晨曦蜂蜜牛奶包': { category: '烘焙', station: 'oven', ingredients: {'面粉':1,'蜂蜜':1}, time: 45, sellPrice: 15, unlocked: true, desc: '香甜浓郁的松软晨曦蜂蜜面包。' },
+    '森林清香白粥': { category: '主食', station: 'stove', ingredients: {'大米':1,'水':1}, time: 25, sellPrice: 12, unlocked: true, desc: '温暖清爽的秘境白米粥。' },
+    '精灵奶茶': { category: '饮品', station: 'bar', ingredients: {'茶叶':1,'牛奶':1}, time: 20, sellPrice: 20, unlocked: true, desc: '带有森林清香的丝滑奶茶。' },
+    '山野鲜果汁': { category: '饮品', station: 'bar', ingredients: {'水':1,'莓果':2}, time: 15, sellPrice: 18, unlocked: true, desc: '解渴的天然山野果汁。' },
+    '熔岩炖肉煲': { category: '主食', station: 'stove', ingredients: {'烈焰野牛肉':1,'黄金土豆':1}, time: 60, sellPrice: 58, unlocked: false, desc: '采用烈焰野牛肉与黄金土豆慢火炖煮的浓郁主食。' },
+    '星空果冻': { category: '甜点', station: 'oven', ingredients: {'史莱姆凝胶肉':1,'星辰碎糖':1}, time: 40, sellPrice: 45, unlocked: false, desc: '晶莹剔透、散发星芒的奇幻甜点。' },
+    '森林沙拉': { category: '配菜', station: 'stove', ingredients: {'发光蘑菇':1,'精灵生菜':1}, time: 25, sellPrice: 32, unlocked: false, desc: '清爽解腻的魔法森林有机蔬菜配菜。' },
+    '霜寒烤鸡排': { category: '配菜', station: 'stove', ingredients: {'霜寒咕咕鸡':1,'火蜥蜴香料':1}, time: 50, sellPrice: 52, unlocked: false, desc: '外酥里嫩、带有独特魔幻辛香的特色鸡排。' },
+    '月光莓果塔': { category: '甜点', station: 'oven', ingredients: {'面粉':1,'月光莓':2}, time: 60, sellPrice: 38, unlocked: false, desc: '带有月光清香的精致幻想果塔。' }
+  },
+  menu: ['黑麦粗面包', '森林清香白粥', '精灵奶茶'],
+  exploredAreas: ['晨曦镇'],
+  expeditions: [], 
+  waterTodayCount: 0, 
+  
+  // V23 Comprehensive Staff with Exact Tiered Roles & Exclusive Mechanics
+  // 每个员工均带结构化专属技能 skill:{type, target, value, label}
+  //   chef_speed       : 厨师缩短制作时间, target=oven/bar/stove/all, value=时间倍率(越小越快)
+  //   chef_autoserve   : 厨师自动上菜, value 无意义
+  //   sales_price      : 销售提升售价, value=售价倍率(>1 越强)
+  //   sales_patience   : 销售提升客人耐心, value=耐心倍率(>1 越强)
+  //   sales_autoaccept : 销售自动接单, value 无意义
+  //   expedition_speed : 采集缩短远征耗时, value=耗时倍率(越小越快)
+  //   expedition_double: 采集双倍掉落, value 无意义
+  // 严格等级压制：等级越高 -> cost / wage 越贵，value 加成越强
+  staff: {
+    // ===== 销售类（subType: 'sales'，店内）=====
+    '初级销售莉莉': { name: '莉莉', avatar: '莉', role: '初级销售', subType: 'sales', type: 'in_store', assigned: false, hired: false, cost: 30, wage: 8, fatigue: 0, loyalty: 50, status: '空闲', desc: '初级销售员，轻度提升售价(+10%)与客人耐心(+15%)。', skill: { type: 'sales_price', target: 'all', value: 1.10, label: '售价+10%' }, skill2: { type: 'sales_patience', target: 'all', value: 1.15, label: '耐心+15%' } },
+    '初级销售塔克': { name: '塔克', avatar: '塔', role: '初级销售', subType: 'sales', type: 'in_store', assigned: false, hired: false, cost: 32, wage: 9, fatigue: 0, loyalty: 50, status: '空闲', desc: '热情的兼职生，能让到店客人更有耐心(+25%)，但售价加成较弱。', skill: { type: 'sales_patience', target: 'all', value: 1.25, label: '耐心+25%' } },
+    '高级销售维维': { name: '维维', avatar: '维', role: '高级销售', subType: 'sales', type: 'in_store', assigned: false, hired: false, cost: 70, wage: 18, fatigue: 0, loyalty: 55, status: '空闲', desc: '高级销售专家，售价(+25%)与客人耐心(+30%)双提升。', skill: { type: 'sales_price', target: 'all', value: 1.25, label: '售价+25%' }, skill2: { type: 'sales_patience', target: 'all', value: 1.30, label: '耐心+30%' } },
+    '高级销售诺拉': { name: '诺拉', avatar: '诺', role: '高级销售', subType: 'sales', type: 'in_store', assigned: false, hired: false, cost: 78, wage: 20, fatigue: 0, loyalty: 56, status: '空闲', desc: '议价高手，专精把饮品吧台售价抬得更高(+35%)，其余品类一般(+10%)。', skill: { type: 'sales_price', target: 'bar', value: 1.35, label: '吧台售价+35%' }, skill2: { type: 'sales_price', target: 'all', value: 1.10, label: '其余售价+10%' } },
+    '高级销售杰斯': { name: '杰斯', avatar: '杰', role: '高级销售', subType: 'sales', type: 'in_store', assigned: false, hired: false, cost: 75, wage: 19, fatigue: 0, loyalty: 55, status: '空闲', desc: '接待达人，负责自动为到店客人接单，让你无后顾之忧。', skill: { type: 'sales_autoaccept', target: 'all', value: 1, label: '自动接单' } },
+    '皇家销售卡琳': { name: '卡琳', avatar: '卡', role: '皇家销售', subType: 'sales', type: 'in_store', assigned: false, hired: false, cost: 140, wage: 38, fatigue: 0, loyalty: 65, status: '空闲', desc: '金牌销售大师，售价暴增(+50%)并大幅提高客人耐心(+50%)。', skill: { type: 'sales_price', target: 'all', value: 1.50, label: '售价+50%' }, skill2: { type: 'sales_patience', target: 'all', value: 1.50, label: '耐心+50%' } },
+    '皇家销售奥利安': { name: '奥利安', avatar: '奥', role: '皇家销售', subType: 'sales', type: 'in_store', assigned: false, hired: false, cost: 155, wage: 42, fatigue: 0, loyalty: 66, status: '空闲', desc: '贵宾招待专家，烘焙区售价拉满(+60%)，并附带自动接单服务。', skill: { type: 'sales_price', target: 'oven', value: 1.60, label: '烘焙售价+60%' }, skill2: { type: 'sales_autoaccept', target: 'all', value: 1, label: '自动接单' } },
+    '皇家销售米拉': { name: '米拉', avatar: '米', role: '皇家销售', subType: 'sales', type: 'in_store', assigned: false, hired: false, cost: 150, wage: 40, fatigue: 0, loyalty: 65, status: '空闲', desc: '魅力女王，客人耐心暴涨(+70%)，同时全品类售价稳健提升(+30%)。', skill: { type: 'sales_patience', target: 'all', value: 1.70, label: '耐心+70%' }, skill2: { type: 'sales_price', target: 'all', value: 1.30, label: '售价+30%' } },
+
+    // ===== 厨师类（subType: 'chef'，店内）=====
+    '初级帮厨老布': { name: '老布', avatar: '布', role: '初级帮厨', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 35, wage: 8, fatigue: 0, loyalty: 50, status: '空闲', desc: '烘焙帮厨，烤箱耗时缩减20%，成品出炉自动上菜。', skill: { type: 'chef_speed', target: 'oven', value: 0.80, label: '烤箱-20%耗时' }, skill2: { type: 'chef_autoserve', target: 'all', value: 1, label: '自动上菜' } },
+    '初级帮厨芬恩': { name: '芬恩', avatar: '芬', role: '初级帮厨', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 33, wage: 8, fatigue: 0, loyalty: 50, status: '空闲', desc: '灶台学徒，专精主食灶台，让炖煮炒菜耗时缩短18%。', skill: { type: 'chef_speed', target: 'stove', value: 0.82, label: '灶台-18%耗时' } },
+    '初级帮厨波波': { name: '波波', avatar: '波', role: '初级帮厨', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 32, wage: 7, fatigue: 0, loyalty: 49, status: '空闲', desc: '饮品学徒，让吧台调饮制作耗时缩短18%。', skill: { type: 'chef_speed', target: 'bar', value: 0.82, label: '吧台-18%耗时' } },
+    '高级大厨莫里斯': { name: '莫里斯', avatar: '莫', role: '高级大厨', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 85, wage: 22, fatigue: 0, loyalty: 55, status: '空闲', desc: '灶台主厨，所有烹饪制作时间缩减35%。', skill: { type: 'chef_speed', target: 'all', value: 0.65, label: '全区域-35%耗时' } },
+    '高级面点师露娜': { name: '露娜', avatar: '露', role: '高级面点师', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 90, wage: 24, fatigue: 0, loyalty: 56, status: '空闲', desc: '面点女王，烤箱与吧台制作耗时大减(-45%)，灶台小幅(-15%)。', skill: { type: 'chef_speed', target: 'oven', value: 0.55, label: '烤箱-45%耗时' }, skill2: { type: 'chef_speed', target: 'bar', value: 0.55, label: '吧台-45%耗时' }, skill3: { type: 'chef_speed', target: 'stove', value: 0.85, label: '灶台-15%耗时' } },
+    '高级灶台师格鲁': { name: '格鲁', avatar: '格', role: '高级灶台师', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 88, wage: 23, fatigue: 0, loyalty: 55, status: '空闲', desc: '爆炒宗师，主食灶台耗时骤降(-50%)，并让成品自动上菜。', skill: { type: 'chef_speed', target: 'stove', value: 0.50, label: '灶台-50%耗时' }, skill2: { type: 'chef_autoserve', target: 'all', value: 1, label: '自动上菜' } },
+    '皇家主厨艾莉丝': { name: '艾莉丝', avatar: '艾', role: '皇家主厨', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 160, wage: 45, fatigue: 0, loyalty: 65, status: '空闲', desc: '宫廷御膳大师，所有烹饪制作时间直接减半(-50%)！', skill: { type: 'chef_speed', target: 'all', value: 0.50, label: '全区域-50%耗时' } },
+    '皇家甜点师塞西尔': { name: '塞西尔', avatar: '塞', role: '皇家甜点师', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 175, wage: 50, fatigue: 0, loyalty: 66, status: '空闲', desc: '皇家甜点巨匠，烤箱耗时锐减(-62%)，吧台(-40%)，成品全部自动上菜。', skill: { type: 'chef_speed', target: 'oven', value: 0.38, label: '烤箱-62%耗时' }, skill2: { type: 'chef_speed', target: 'bar', value: 0.60, label: '吧台-40%耗时' }, skill3: { type: 'chef_autoserve', target: 'all', value: 1, label: '自动上菜' } },
+    '皇家灶台师达贡': { name: '达贡', avatar: '达', role: '皇家灶台师', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 170, wage: 48, fatigue: 0, loyalty: 65, status: '空闲', desc: '皇家御灶统领，灶台耗时暴降(-62%)，全区域小幅加速(-20%)。', skill: { type: 'chef_speed', target: 'stove', value: 0.38, label: '灶台-62%耗时' }, skill2: { type: 'chef_speed', target: 'all', value: 0.80, label: '其余-20%耗时' } },
+
+    // ===== 外派采集类（subType: 'expedition'，远征）=====
+    '初级采集员小狼': { name: '小狼', avatar: '狼', role: '初级采集员', subType: 'expedition', type: 'expedition', assigned: false, hired: false, cost: 25, wage: 6, fatigue: 0, loyalty: 50, status: '空闲', desc: '敏捷采集员，野外远征耗时缩减15%（做菜速度不受影响）。', skill: { type: 'expedition_speed', target: 'all', value: 0.85, label: '远征-15%耗时' } },
+    '初级采集员朵拉': { name: '朵拉', avatar: '朵', role: '初级采集员', subType: 'expedition', type: 'expedition', assigned: false, hired: false, cost: 27, wage: 7, fatigue: 0, loyalty: 51, status: '空闲', desc: '运气不错的采集员，远征时有几率带回双倍物资。', skill: { type: 'expedition_double', target: 'all', value: 1, label: '远征双倍掉落' } },
+    '高级采集师艾拉': { name: '艾拉', avatar: '艾', role: '高级采集师', subType: 'expedition', type: 'expedition', assigned: false, hired: false, cost: 62, wage: 16, fatigue: 0, loyalty: 56, status: '空闲', desc: '资深采集师，远征耗时缩减35%，并稳定带回双倍物资。', skill: { type: 'expedition_speed', target: 'all', value: 0.65, label: '远征-35%耗时' }, skill2: { type: 'expedition_double', target: 'all', value: 1, label: '远征双倍掉落' } },
+    '高级采集师霍克': { name: '霍克', avatar: '霍', role: '高级采集师', subType: 'expedition', type: 'expedition', assigned: false, hired: false, cost: 66, wage: 17, fatigue: 0, loyalty: 56, status: '空闲', desc: '疾风探路者，专精缩短远征耗时(-45%)，是效率至上主义者。', skill: { type: 'expedition_speed', target: 'all', value: 0.55, label: '远征-45%耗时' } },
+    '资深采集长雷恩': { name: '雷恩', avatar: '雷', role: '资深采集长', subType: 'expedition', type: 'expedition', assigned: false, hired: false, cost: 110, wage: 30, fatigue: 0, loyalty: 65, status: '空闲', desc: '探险队长，远征耗时缩减50%并带回双倍珍稀物资。', skill: { type: 'expedition_speed', target: 'all', value: 0.50, label: '远征-50%耗时' }, skill2: { type: 'expedition_double', target: 'all', value: 1, label: '远征双倍掉落' } },
+    '资深采集导师芙蕾': { name: '芙蕾', avatar: '芙', role: '资深采集导师', subType: 'expedition', type: 'expedition', assigned: false, hired: false, cost: 120, wage: 34, fatigue: 0, loyalty: 66, status: '空闲', desc: '传奇寻宝导师，远征耗时锐减(-62%)且必定带回双倍珍稀物资。', skill: { type: 'expedition_speed', target: 'all', value: 0.38, label: '远征-62%耗时' }, skill2: { type: 'expedition_double', target: 'all', value: 1, label: '远征双倍掉落' } },
+    '资深侦察兵凯尔': { name: '凯尔', avatar: '凯', role: '资深侦察兵', subType: 'expedition', type: 'expedition', assigned: false, hired: false, cost: 115, wage: 32, fatigue: 0, loyalty: 65, status: '空闲', desc: '暗影侦察兵，全队远征耗时再降(-55%)，擅长速战速决。', skill: { type: 'expedition_speed', target: 'all', value: 0.45, label: '远征-55%耗时' } }
+  },
+
+  characters: {
+    'manager': { id: 'manager', name: '店长(你)', isHired: true, expeditionId: null, todayCount: 0 },
+    '初级销售莉莉': { id: '初级销售莉莉', name: '莉莉', isHired: false, expeditionId: null, todayCount: 0 },
+    '初级销售塔克': { id: '初级销售塔克', name: '塔克', isHired: false, expeditionId: null, todayCount: 0 },
+    '高级销售维维': { id: '高级销售维维', name: '维维', isHired: false, expeditionId: null, todayCount: 0 },
+    '高级销售诺拉': { id: '高级销售诺拉', name: '诺拉', isHired: false, expeditionId: null, todayCount: 0 },
+    '高级销售杰斯': { id: '高级销售杰斯', name: '杰斯', isHired: false, expeditionId: null, todayCount: 0 },
+    '皇家销售卡琳': { id: '皇家销售卡琳', name: '卡琳', isHired: false, expeditionId: null, todayCount: 0 },
+    '皇家销售奥利安': { id: '皇家销售奥利安', name: '奥利安', isHired: false, expeditionId: null, todayCount: 0 },
+    '皇家销售米拉': { id: '皇家销售米拉', name: '米拉', isHired: false, expeditionId: null, todayCount: 0 },
+    '初级帮厨老布': { id: '初级帮厨老布', name: '老布', isHired: false, expeditionId: null, todayCount: 0 },
+    '初级帮厨芬恩': { id: '初级帮厨芬恩', name: '芬恩', isHired: false, expeditionId: null, todayCount: 0 },
+    '初级帮厨波波': { id: '初级帮厨波波', name: '波波', isHired: false, expeditionId: null, todayCount: 0 },
+    '高级大厨莫里斯': { id: '高级大厨莫里斯', name: '莫里斯', isHired: false, expeditionId: null, todayCount: 0 },
+    '高级面点师露娜': { id: '高级面点师露娜', name: '露娜', isHired: false, expeditionId: null, todayCount: 0 },
+    '高级灶台师格鲁': { id: '高级灶台师格鲁', name: '格鲁', isHired: false, expeditionId: null, todayCount: 0 },
+    '皇家主厨艾莉丝': { id: '皇家主厨艾莉丝', name: '艾莉丝', isHired: false, expeditionId: null, todayCount: 0 },
+    '皇家甜点师塞西尔': { id: '皇家甜点师塞西尔', name: '塞西尔', isHired: false, expeditionId: null, todayCount: 0 },
+    '皇家灶台师达贡': { id: '皇家灶台师达贡', name: '达贡', isHired: false, expeditionId: null, todayCount: 0 },
+    '初级采集员小狼': { id: '初级采集员小狼', name: '小狼', isHired: false, expeditionId: null, todayCount: 0 },
+    '初级采集员朵拉': { id: '初级采集员朵拉', name: '朵拉', isHired: false, expeditionId: null, todayCount: 0 },
+    '高级采集师艾拉': { id: '高级采集师艾拉', name: '艾拉', isHired: false, expeditionId: null, todayCount: 0 },
+    '高级采集师霍克': { id: '高级采集师霍克', name: '霍克', isHired: false, expeditionId: null, todayCount: 0 },
+    '资深采集长雷恩': { id: '资深采集长雷恩', name: '雷恩', isHired: false, expeditionId: null, todayCount: 0 },
+    '资深采集导师芙蕾': { id: '资深采集导师芙蕾', name: '芙蕾', isHired: false, expeditionId: null, todayCount: 0 },
+    '资深侦察兵凯尔': { id: '资深侦察兵凯尔', name: '凯尔', isHired: false, expeditionId: null, todayCount: 0 }
+  },
+
+  residents: {
+    '落魄骑士': { name: '落魄骑士', avatar: '骑', likes: '黑麦粗面包', favor: 0, met: true },
+    '精灵魔法师': { name: '精灵魔法师', avatar: '精', likes: '月光莓果塔', favor: 0, met: false },
+    '旅行商人': { name: '旅行商人', avatar: '商', likes: '熔岩炖肉煲', favor: 0, met: false }
+  },
+  decorations: {
+    '魔法烤箱': { name: '魔法烤箱（烘焙区）', cost: 0, bought: true, level: 1, maxLevel: 3, effect: '提供3个烘焙槽位（默认解锁）', type: 'oven' },
+    '精灵饮品吧台': { name: '精灵饮品吧台（饮品区）', cost: 60, bought: false, level: 0, maxLevel: 3, effect: '解锁首页饮品制作区（未购买时无法制作/接待饮品订单）', type: 'bar' },
+    '魔法主食灶台': { name: '魔法主食灶台（主食区）', cost: 80, bought: false, level: 0, maxLevel: 3, effect: '解锁首页主食/烹饪区（未购买时无法制作/接待主食订单）', type: 'stove' },
+    '秘境堂食木桌椅': { name: '秘境堂食木桌椅', cost: 50, bought: false, level: 1, maxLevel: 3, effect: '提升堂食售价 +10% 与等餐耐心', type: 'table' },
+    '星光户外休闲坪': { name: '星光户外休闲坪', cost: 45, bought: false, level: 1, maxLevel: 3, effect: '吸引过往旅人，客流量显著提升', type: 'outdoor' },
+    '精灵许愿喷泉': { name: '精灵许愿喷泉', cost: 90, bought: false, level: 1, maxLevel: 3, effect: '大幅提升餐厅氛围值与幸运度', type: 'fountain' },
+    '复古魔幻吊灯': { name: '复古魔幻吊灯', cost: 70, bought: false, level: 1, maxLevel: 3, effect: '提升店内照明与顾客停留时间', type: 'light' },
+    '星空彩绘玻璃窗': { name: '星空彩绘玻璃窗', cost: 110, bought: false, level: 1, maxLevel: 3, effect: '高级艺术装潢，营业收入+15%', type: 'window' },
+    '猫咪慵懒地毯': { name: '猫咪慵懒地毯', cost: 35, bought: false, level: 1, maxLevel: 3, effect: '温馨治愈，吸引更多女性顾客', type: 'carpet' },
+    '黄金面包展示柜': { name: '黄金面包展示柜', cost: 85, bought: false, level: 1, maxLevel: 3, effect: '精致橱窗，提升成品自动售卖效率', type: 'cabinet' }
+  },
+  quests: {
+    '骑士的早餐': { desc: '落魄骑士需要5个黑麦粗面包', target: 5, item: '黑麦粗面包', reward: 65, active: true, done: false },
+    '精灵的甜点': { desc: '精灵魔法师想品尝月光莓果塔（需好感度达50解锁）', target: 1, item: '月光莓果塔', reward: 130, active: false, done: false }
+  },
+  achievements: {
+    '第一道幻想料理': { desc: '成功制作出第一份餐饮商品', done: false },
+    '开门大吉': { desc: '梦幻餐饮屋首次开门营业', done: false },
+    '小有积蓄': { desc: '总资产达到200铜币', done: false }
+  },
+  codex: {
+    '黑麦粗面包': { desc: '质朴管饱的传统黑麦面包。', discovered: true },
+    '晨曦蜂蜜牛奶包': { desc: '香甜浓郁的松软晨曦蜂蜜面包。', discovered: true },
+    '森林清香白粥': { desc: '温暖清爽的秘境白米粥。', discovered: true },
+    '精灵奶茶': { desc: '带有森林清香的丝滑奶茶。', discovered: true },
+    '山野鲜果汁': { desc: '解渴的天然山野果汁。', discovered: true },
+    '熔岩炖肉煲': { desc: '采用烈焰野牛肉与黄金土豆慢火炖煮的浓郁主食。', discovered: false },
+    '星空果冻': { desc: '晶莹剔透、散发星芒的奇幻甜点。', discovered: false },
+    '森林沙拉': { desc: '清爽解腻的魔法森林有机蔬菜配菜。', discovered: false },
+    '霜寒烤鸡排': { desc: '外酥里嫩、带有独特魔幻辛香的特色鸡排。', discovered: false },
+    '月光莓果塔': { desc: '带有月光清香的精致幻想果塔。', discovered: false }
+  },
+  lastSave: Date.now(),
+  lastTick: Date.now()
+};
+
+let selectedExpTeamIds = ['manager', '初级采集员小狼'];
+
+const timeNames = ['早晨', '午后', '傍晚', '夜晚'];
+const weatherNames = ['晴朗微风', '细雨朦胧', '雪花纷飞'];
+
+const areas = {
+  '晨曦镇郊野 (Tier 1)': { desc: '平静安宁的小镇周边，产出大量纯净水、基础面粉与大米。', time: 25, tier: 1, items: ['水', '水', '面粉', '大米', '黑麦', '基础蔬菜', '星光麦'] },
+  '翡翠魔法森林 (Tier 2)': { desc: '生长着魔法植物的森林，常有发光的月光莓、发光蘑菇与茶叶。', time: 45, tier: 2, items: ['水', '月光莓', '发光蘑菇', '精灵生菜', '茶叶', '星辉花粉', '精灵大米', '精灵薄荷叶'] },
+  '赤岩烈焰山脉 (Tier 3)': { desc: '盛产烈焰野牛肉、火蜥蜴香料与海妖之泪（盐）的险峻山脉。', time: 60, tier: 3, items: ['水', '烈焰野牛肉', '火蜥蜴香料', '海妖之泪（盐）', '黄金土豆', '深渊黑胡椒', '秘境粗面粉', '蚝油'] },
+  '霜寒极地冰原 (Tier 4)': { desc: '冰冷刺骨的秘境，产出霜寒咕咕鸡、史莱姆凝胶肉与星辰碎糖。', time: 75, tier: 4, items: ['水', '霜寒咕咕鸡', '史莱姆凝胶肉', '星辰碎糖', '月光莓', '水晶糯米', '月影甘露'] },
+  '龙眠古迹秘境 (Tier 5)': { desc: '古龙沉睡的顶级秘境，蕴藏无数龙焰果、极光花蜜与高级肉类。', time: 90, tier: 5, items: ['水', '龙焰果', '烈焰野牛肉', '霜寒咕咕鸡', '星辰碎糖', '极光花蜜', '太阳结晶糖'] }
+};
+
+const marketCategories = {
+  'staple': {
+    name: '基础主食',
+    items: { '面粉': 3, '黑麦': 2, '大米': 3, '星光麦': 4, '精灵大米': 5, '秘境粗面粉': 4, '水晶糯米': 6, '黄金麦芽': 5 }
+  },
+  'meat': {
+    name: '肉禽海鲜',
+    items: { '烈焰野牛肉': 12, '霜寒咕咕鸡': 10, '史莱姆凝胶肉': 6, '深渊巨蟹肉': 14, '精灵河鲜': 8, '龙鳞鱼肉': 15, '雷鸟胸肉': 11, '黄金兽肋排': 13 }
+  },
+  'veg': {
+    name: '蔬菜与果物',
+    items: { '发光蘑菇': 5, '精灵生菜': 4, '黄金土豆': 6, '月光莓': 6, '龙焰果': 12, '莓果': 3, '基础蔬菜': 3, '水晶萝卜': 5, '魔法甜椒': 5, '晨曦南瓜': 7 }
+  },
+  'condiment': {
+    name: '调料饮品原料',
+    items: { '海妖之泪（盐）': 3, '星辰碎糖': 8, '牛奶': 4, '茶叶': 4, '蜂蜜': 10, '火蜥蜴香料': 7, '糖': 3, '黄油': 6, '鸡蛋': 3, '水': 1, '深渊黑胡椒': 5, '精灵薄荷叶': 4, '月影甘露': 9, '极光花蜜': 12, '太阳结晶糖': 10, '蚝油': 5 }
+  },
+  'atmosphere': {
+    name: '餐厅氛围布置',
+    items: { '清新小盆栽': 40, '精灵魔法晶石灯': 80, '复古蕾丝桌布': 60, '幻想星空挂画': 100, '精灵许愿喷泉': 90, '复古魔幻吊灯': 70, '星空彩绘玻璃窗': 110, '猫咪慵懒地毯': 35, '黄金面包展示柜': 85 }
+  }
+};
+
+const marketPrices = {
+  '面粉': 3, '黑麦': 2, '大米': 3, '星光麦': 4, '精灵大米': 5, '秘境粗面粉': 4, '水晶糯米': 6, '黄金麦芽': 5,
+  '烈焰野牛肉': 12, '霜寒咕咕鸡': 10, '史莱姆凝胶肉': 6, '深渊巨蟹肉': 14, '精灵河鲜': 8, '龙鳞鱼肉': 15, '雷鸟胸肉': 11, '黄金兽肋排': 13,
+  '发光蘑菇': 5, '精灵生菜': 4, '黄金土豆': 6, '月光莓': 6, '龙焰果': 12, '莓果': 3, '基础蔬菜': 3, '水晶萝卜': 5, '魔法甜椒': 5, '晨曦南瓜': 7,
+  '海妖之泪（盐）': 3, '星辰碎糖': 8, '牛奶': 4, '茶叶': 4, '蜂蜜': 10, '火蜥蜴香料': 7, '糖': 3, '黄油': 6, '鸡蛋': 3, '水': 1, '深渊黑胡椒': 5, '精灵薄荷叶': 4, '月影甘露': 9, '极光花蜜': 12, '太阳结晶糖': 10, '蚝油': 5,
+  '清新小盆栽': 40, '精灵魔法晶石灯': 80, '复古蕾丝桌布': 60, '幻想星空挂画': 100, '精灵许愿喷泉': 90, '复古魔幻吊灯': 70, '星空彩绘玻璃窗': 110, '猫咪慵懒地毯': 35, '黄金面包展示柜': 85
+};
+
+const atmosphereItemsEffect = {
+  '清新小盆栽': { val: 10, desc: '增加 10 点氛围值' },
+  '精灵魔法晶石灯': { val: 25, desc: '增加 25 点氛围值' },
+  '复古蕾丝桌布': { val: 15, desc: '增加 15 点氛围值' },
+  '幻想星空挂画': { val: 35, desc: '增加 35 点氛围值' },
+  '精灵许愿喷泉': { val: 40, desc: '增加 40 点氛围值' },
+  '复古魔幻吊灯': { val: 30, desc: '增加 30 点氛围值' },
+  '星空彩绘玻璃窗': { val: 50, desc: '增加 50 点氛围值' },
+  '猫咪慵懒地毯': { val: 12, desc: '增加 12 点氛围值' },
+  '黄金面包展示柜': { val: 35, desc: '增加 35 点氛围值' }
+};
+
+const classicRecipesPresets = {
+  '茶叶+牛奶': { name: '皇家丝滑奶茶', cat: '饮品', station: 'bar', time: 20, prices: {20: 22, 60: 45, 150: 95}, desc: '精选高山茶叶与醇厚魔法牛奶交织出的丝滑茶饮。' },
+  '水+莓果': { name: '晨曦山野果汁', cat: '饮品', station: 'bar', time: 15, prices: {20: 18, 60: 38, 150: 80}, desc: '采用新鲜山野莓果鲜榨而成的清甜解渴果汁。' },
+  '水+水': { name: '纯净灵泉水', cat: '饮品', station: 'bar', time: 10, prices: {20: 12, 60: 28, 150: 60}, desc: '蕴含微弱魔力波动的纯净甘泉。' },
+  '茶叶+茶叶': { name: '双倍浓醇绿茶', cat: '饮品', station: 'bar', time: 18, prices: {20: 20, 60: 42, 150: 88}, desc: '双重茶叶萃取，茶香四溢，提神醒脑。' },
+  '牛奶+牛奶': { name: '黄金双皮奶', cat: '饮品', station: 'bar', time: 22, prices: {20: 25, 60: 50, 150: 105}, desc: '浓郁奶香的双倍交融，口感如丝般顺滑。' },
+  '蜂蜜+水': { name: '甜梦蜂蜜蜜饮', cat: '饮品', station: 'bar', time: 15, prices: {20: 19, 60: 40, 150: 85}, desc: '甘甜芬芳的蜂蜜与灵泉水的完美调和。' },
+
+  '黑麦+水': { name: '质朴黑麦面包', cat: '烘焙', station: 'oven', time: 30, prices: {20: 10, 60: 25, 150: 55}, desc: '传统工艺烘焙的扎实管饱黑麦面包。' },
+  '面粉+蜂蜜': { name: '晨曦蜂蜜牛奶包', cat: '烘焙', station: 'oven', time: 45, prices: {20: 16, 60: 36, 150: 78}, desc: '香甜松软的招牌蜂蜜小面包。' },
+  '面粉+月光莓': { name: '月光莓果塔', cat: '烘焙', station: 'oven', time: 60, prices: {20: 38, 60: 75, 150: 160}, desc: '点缀着发光月光莓的精致法式果塔。' },
+  '面粉+面粉': { name: '黄金麦香原酥', cat: '烘焙', station: 'oven', time: 35, prices: {20: 14, 60: 32, 150: 70}, desc: '双倍麦芽面粉烘焙出的金黄酥脆大饼。' },
+  '面粉+烈焰野牛肉': { name: '酥皮烈焰野牛肉角', cat: '烘焙', station: 'oven', time: 55, prices: {20: 48, 60: 98, 150: 210}, desc: '外皮酥脆、内馅多汁的豪华野牛肉酥角。' },
+  '面粉+霜寒咕咕鸡': { name: '金丝酥皮鸡肉卷', cat: '烘焙', station: 'oven', time: 50, prices: {20: 45, 60: 92, 150: 195}, desc: '包裹着霜寒咕咕鸡肉丝的金黄酥皮卷。' },
+  '史莱姆凝胶肉+星辰碎糖': { name: '星空果冻', cat: '烘焙', station: 'oven', time: 40, prices: {20: 45, 60: 90, 150: 190}, desc: '晶莹剔透、闪烁星芒的梦幻甜品。' },
+
+  '大米+水': { name: '森林清香白粥', cat: '主食', station: 'stove', time: 25, prices: {20: 12, 60: 28, 150: 60}, desc: '温暖治愈的秘境白米粥。' },
+  '烈焰野牛肉+黄金土豆': { name: '秘制野牛肉烩饭', cat: '主食', station: 'stove', time: 60, prices: {20: 58, 60: 120, 150: 250}, desc: '采用顶级野牛肉与土豆慢火炖煮的浓郁烩饭。' },
+  '发光蘑菇+精灵生菜': { name: '翡翠鲜蔬煲', cat: '主食', station: 'stove', time: 25, prices: {20: 32, 60: 68, 150: 145}, desc: '清爽解腻的魔法森林有机蔬菜配菜。' },
+  '霜寒咕咕鸡+火蜥蜴香料': { name: '烈焰辛香烤鸡排', cat: '主食', station: 'stove', time: 50, prices: {20: 52, 60: 110, 150: 230}, desc: '外酥里嫩、香气扑鼻的特色香料烤鸡排。' },
+  '大米+大米': { name: '秘境双香米饭', cat: '主食', station: 'stove', time: 30, prices: {20: 15, 60: 35, 150: 75}, desc: '粒粒饱满、充满魔力芬芳的双蒸米饭。' },
+  '烈焰野牛肉+烈焰野牛肉': { name: '双层炭烤厚牛排', cat: '主食', station: 'stove', time: 65, prices: {20: 65, 60: 135, 150: 280}, desc: '双倍份量烈焰野牛肉激发出极致肉香的厚切牛排。' },
+  '精灵生菜+蚝油': { name: '秘制蚝油鲜生菜', cat: '主食', station: 'stove', time: 20, prices: {20: 25, 60: 55, 150: 115}, desc: '用上等蚝油爆炒的爽脆碧绿生菜。' }
+};
+
+/* ============================================================
+ * v24 新增：品类配方引擎（后台逻辑，无独立页面）
+ * 设计原则：
+ *   1) 基底材料 = 万能本体（面粉即面团/饼皮/面包体/小料体，茶叶即液体基底……）
+ *   2) 做法分支 决定"它是什么品类"；辅料 决定"它是什么风味/内馅"
+ *   3) 命名 = 「欧式修饰（风味/地名/质感）」 + 「品类名」，绝不以原料名拼接
+ *   4) 饮品区（bar）绝对禁止肉类、面粉类、米类、蔬菜类原料
+ *   5) 全局去重：已生成过的完全同名不再出现，同组合自动换品类/换风味
+ *   6) 灶台区按做法细分：凉拌 / 热菜 / 炒菜 / 炖菜 / 炖汤，同一组合可出不同做法
+ * ============================================================ */
+
+/* —— 1. 基底分类：判断一个材料在配方里扮演什么角色 —— */
+function baseKind(item) {
+  if (!item) return 'other';
+  if (/面粉|黑麦|麦/.test(item)) return 'flour';      // 面点基底（面团/饼皮/面包体/小料体）
+  if (/大米|米/.test(item)) return 'rice';            // 米食基底
+  if (/茶叶|茶/.test(item)) return 'tea';             // 液体茶基底
+  if (/牛奶|黄油|奶油|芝士|奶酪|炼乳/.test(item)) return 'dairy'; // 乳基底
+  if (/蛋/.test(item)) return 'egg';                  // 凝固基底
+  if (/糖|蜂蜜|糖浆|甜/.test(item)) return 'sweet';  // 甜味基底
+  if (/肉|鸡|牛|排|肠|腿/.test(item)) return 'meat'; // 咸鲜/肉基底
+  if (/莓|果|柠檬|苹果|桃|梨|蕉|瓜|莓果|龙焰果/.test(item)) return 'fruit'; // 果味基底
+  if (/蘑菇|土豆|萝卜|菜|生菜|番茄|洋葱|椒|豆|芋|薯|红薯|紫薯|珍珠/.test(item)) return 'veg'; // 蔬/淀粉基底
+  if (/盐|酱油|蚝油|香料|胡椒|辣椒|香草|桂|八角/.test(item)) return 'season'; // 调味基底
+  if (/水|灵泉|露/.test(item)) return 'water';       // 水基底
+  return 'other';
+}
+function isDrinkOnly(item)  { return baseKind(item) === 'tea' || baseKind(item) === 'water' || baseKind(item) === 'dairy' || baseKind(item) === 'sweet' || baseKind(item) === 'fruit'; }
+function isBarForbidden(item){ return ['flour','rice','meat','veg'].includes(baseKind(item)); }
+
+/* —— 2. 基底 → 品类池（品类名 + 欧式命名素材 + 价格/耗时权重） —— */
+/*     flavorSrc：可从哪些基底里抽取"风味修饰"。descTpl 是描述模板，${F} 会被替换为风味词 */
+const CUISINE_POOLS = {
+  // ===== 面点基底 flour：烘焙/面点/小料 =====
+  flour: {
+    cat: '烘焙', station: 'oven',
+    forms: [
+      { form: '贝果',   eu: ['布列塔尼','诺曼底','阿尔萨斯','佛兰德斯','哥本哈根'], time: 30, px: 1.00, descTpl: '外圈韧弹、内里绵软的经典${F}贝果，越嚼越香。' },
+      { form: '可颂',   eu: ['维也纳','巴黎','图卢兹','布鲁塞尔','莱茵'],       time: 40, px: 1.30, descTpl: '层层起酥、黄油香气扑鼻的${F}可颂。' },
+      { form: '吐司',   eu: ['阿尔卑斯','托斯卡纳','普罗旺斯','北海','巴伐利亚'], time: 35, px: 0.95, descTpl: '厚切松软、组织细腻的${F}吐司。' },
+      { form: '佛卡夏', eu: ['热那亚','西西里','那不勒斯','科西嘉','安达卢西亚'], time: 30, px: 0.90, descTpl: '橄榄油浸润、气孔粗犷的${F}佛卡夏扁面包。' },
+      { form: '法棍',   eu: ['巴黎','里昂','马赛','波尔多','布鲁日'],           time: 35, px: 0.85, descTpl: '外壳脆硬、内芯柔韧的传统${F}法棍。' },
+      { form: '乡村包', eu: ['勃艮第','黑森林','约克郡','格兰诺拉','喀尔巴阡'], time: 50, px: 1.05, descTpl: '厚实质朴、麦香浓郁的${F}乡村面包。' },
+      { form: '塔',     eu: ['洛林','巴斯克','布列塔尼','佛罗伦萨','爱丁堡'],   time: 45, px: 1.20, descTpl: '酥底承托、馅料饱满的${F}塔。' },
+      { form: '派',     eu: ['约克郡','康沃尔','勃艮第','佛罗伦萨','匈牙利'],   time: 48, px: 1.15, descTpl: '酥皮包裹、汁水丰盈的${F}派。' },
+      { form: '馅饼',   eu: ['康沃尔','阿尔萨斯','都灵','塞维利亚','布拉格'],   time: 38, px: 1.00, descTpl: '皮薄馅足、一口爆汁的${F}馅饼。' },
+      { form: '披萨',   eu: ['那不勒斯','罗马','西西里','热那亚','威尼斯'],     time: 42, px: 1.10, descTpl: '窑烤薄底、芝士拉丝的${F}披萨。' },
+      { form: '司康',   eu: ['约克郡','爱丁堡','康沃尔','都柏林','哥本哈根'],   time: 28, px: 0.85, descTpl: '酥松微裂、配茶绝佳的${F}司康。' },
+      { form: '玛德琳', eu: ['洛林','普罗旺斯','诺曼底','托斯卡纳','塞维利亚'], time: 25, px: 0.90, descTpl: '贝壳造型、边缘焦脆的${F}玛德琳小蛋糕。' },
+      { form: '珍珠',   eu: ['威尼斯','西西里','翡冷翠','京都','暹罗'],         time: 22, px: 0.75, descTpl: 'Q弹爽滑的${F}珍珠小料，专为饮品而生。' },
+      { form: '芋圆',   eu: ['京都','暹罗','澎湖','江南','巴厘'],               time: 24, px: 0.78, descTpl: '手工揉制的${F}芋圆小料，嚼劲十足。' },
+      { form: '奶冻',   eu: ['巴黎','布鲁塞尔','维也纳','慕尼黑','都柏林'],     time: 26, px: 0.95, descTpl: '入口即化、如云朵般的${F}奶冻。' }
+    ]
+  },
+  // ===== 米食基底 rice：主食/米制 =====
+  rice: {
+    cat: '主食', station: 'stove',
+    forms: [
+      { form: '烩饭',   eu: ['米兰','威尼斯','托斯卡纳','普罗旺斯','安达卢西亚'], time: 40, px: 1.10, descTpl: '米粒吸饱汤汁、软糯浓香的${F}烩饭。' },
+      { form: '炒饭',   eu: ['扬州','暹罗','江南','广府','马来'],               time: 25, px: 0.95, descTpl: '粒粒分明、镬气十足的${F}炒饭。' },
+      { form: '粥',     eu: ['江南','京都','潮州','暹罗','岭南'],               time: 35, px: 0.75, descTpl: '慢火熬煮至绵密的${F}粥，温润养胃。' },
+      { form: '饭团',   eu: ['京都','江南','奈良','澎湖','暹罗'],               time: 20, px: 0.85, descTpl: '掌心大小的${F}饭团，方便携带。' },
+      { form: '米糕',   eu: ['江南','京都','岭南','暹罗','顺化'],               time: 30, px: 0.90, descTpl: '蒸制而成的软糯${F}米糕。' },
+      { form: '炖饭',   eu: ['米兰','里昂','巴塞罗那','维也纳','布达佩斯'],     time: 45, px: 1.05, descTpl: '高汤慢煨、米心微硬的${F}炖饭。' }
+    ]
+  },
+  // ===== 茶基底 tea：饮品 =====
+  tea: {
+    cat: '饮品', station: 'bar',
+    forms: [
+      { form: '奶茶',   eu: ['阿萨姆','锡兰','伯爵','京都','大吉岭'],           time: 18, px: 1.00, descTpl: '茶香与奶香交融的丝滑${F}奶茶。' },
+      { form: '果茶',   eu: ['普罗旺斯','西西里','托斯卡纳','江南','暹罗'],     time: 15, px: 0.90, descTpl: '清爽果香缀入茶汤的${F}果茶。' },
+      { form: '纯茶',   eu: ['大吉岭','乌瓦','祁门','静冈','摩洛哥'],           time: 12, px: 0.75, descTpl: '不加修饰、回甘悠长的${F}纯茶。' },
+      { form: '花茶',   eu: ['普罗旺斯','洛林','江南','京都','摩洛哥'],         time: 16, px: 0.85, descTpl: '花香萦绕、层次雅致的${F}花茶。' },
+      { form: '冷萃',   eu: ['维也纳','哥本哈根','布鲁塞尔','都柏林','西雅图'], time: 20, px: 1.05, descTpl: '低温慢萃、口感澄净的${F}冷萃茶。' },
+      { form: '特调',   eu: ['维也纳','巴黎','佛罗伦萨','爱丁堡','布达佩斯'],   time: 22, px: 1.20, descTpl: '调入香料与奶霜的宫廷级${F}特调茶饮。' },
+      { form: '奶盖茶', eu: ['京都','阿萨姆','锡兰','江南','暹罗'],             time: 20, px: 1.10, descTpl: '顶层覆着绵密咸奶霜的${F}奶盖茶。' }
+    ]
+  },
+  // ===== 乳基底 dairy：饮品/甜点 =====
+  dairy: {
+    cat: '饮品', station: 'bar',
+    forms: [
+      { form: '拿铁',   eu: ['维也纳','佛罗伦萨','巴黎','西雅图','墨尔本'],     time: 18, px: 1.05, descTpl: '奶沫与浓缩交融的柔滑${F}拿铁。' },
+      { form: '奶昔',   eu: ['波士顿','布鲁塞尔','维也纳','悉尼','都柏林'],     time: 16, px: 1.00, descTpl: '冰沙般绵密的${F}奶昔。' },
+      { form: '奶冻',   eu: ['巴黎','都柏林','维也纳','哥本哈根','慕尼黑'],     time: 22, px: 0.95, descTpl: '颤巍巍、入口即化的${F}奶冻。' },
+      { form: '布丁',   eu: ['巴黎','伦敦','爱丁堡','维也纳','罗马'],           time: 26, px: 1.00, descTpl: '焦糖覆面、蛋奶香浓的${F}布丁。' },
+      { form: '冰淇淋', eu: ['西西里','巴黎','维也纳','哥本哈根','京都'],       time: 24, px: 1.10, descTpl: '手工慢搅、空气感十足的${F}冰淇淋。' },
+      { form: '奶霜',   eu: ['维也纳','巴黎','布鲁塞尔','都柏林','哥本哈根'],   time: 14, px: 0.85, descTpl: '轻盈不腻的${F}奶霜，可淋在饮品或甜点上。' }
+    ]
+  },
+  // ===== 蛋基底 egg：甜点/烘焙 =====
+  egg: {
+    cat: '烘焙', station: 'oven',
+    forms: [
+      { form: '蛋挞',   eu: ['里斯本','巴黎','爱丁堡','维也纳','岭南'],         time: 32, px: 1.10, descTpl: '焦斑点点、蛋奶芯嫩滑的${F}蛋挞。' },
+      { form: '舒芙蕾', eu: ['巴黎','维也纳','京都','布鲁塞尔','罗马'],         time: 30, px: 1.20, descTpl: '蓬松如云、现烤即食的${F}舒芙蕾。' },
+      { form: '布丁',   eu: ['巴黎','伦敦','都柏林','维也纳','罗马'],           time: 28, px: 0.95, descTpl: '温润绵密的经典${F}布丁。' },
+      { form: '蛋卷',   eu: ['维也纳','普罗旺斯','京都','江南','巴塞罗那'],     time: 24, px: 0.85, descTpl: '薄脆金黄、蛋香四溢的${F}蛋卷。' },
+      { form: '欧姆蛋', eu: ['里昂','托斯卡纳','维也纳','马德里','布鲁塞尔'],   time: 20, px: 0.90, descTpl: '嫩滑流心、裹着馅料的${F}欧姆蛋。' },
+      { form: '玛德琳', eu: ['洛林','诺曼底','普罗旺斯','托斯卡纳','塞维利亚'], time: 25, px: 0.90, descTpl: '贝壳造型、蛋香浓郁的${F}玛德琳。' }
+    ]
+  },
+  // ===== 甜味基底 sweet：甜点 =====
+  sweet: {
+    cat: '烘焙', station: 'oven',
+    forms: [
+      { form: '马卡龙',   eu: ['巴黎','尼斯','布鲁塞尔','维也纳','佛罗伦萨'],   time: 35, px: 1.25, descTpl: '裙边细腻、夹馅绵柔的${F}马卡龙。' },
+      { form: '焦糖',     eu: ['巴黎','都柏林','维也纳','爱丁堡','波士顿'],     time: 22, px: 0.85, descTpl: '苦甜交织、光泽诱人的${F}焦糖。' },
+      { form: '司康',     eu: ['约克郡','爱丁堡','都柏林','哥本哈根','布鲁塞尔'], time: 26, px: 0.85, descTpl: '酥松配茶的${F}司康。' },
+      { form: '糖霜饼干', eu: ['维也纳','巴黎','哥本哈根','慕尼黑','布拉格'],   time: 28, px: 0.80, descTpl: '表面缀着细白糖霜的${F}糖霜饼干。' },
+      { form: '果酱',     eu: ['普罗旺斯','托斯卡纳','西西里','江南','暹罗'],   time: 30, px: 0.75, descTpl: '慢熬浓缩、涂面包绝佳的${F}果酱。' },
+      { form: '慕斯',     eu: ['巴黎','维也纳','布鲁塞尔','罗马','京都'],       time: 34, px: 1.20, descTpl: '空气感轻盈的${F}慕斯甜点。' }
+    ]
+  },
+  // ===== 果味基底 fruit：甜点/饮品 =====
+  fruit: {
+    cat: '烘焙', station: 'oven',
+    forms: [
+      { form: '果塔',   eu: ['普罗旺斯','托斯卡纳','佛罗伦萨','巴塞罗那','江南'], time: 40, px: 1.15, descTpl: '时令鲜果铺满酥底的${F}果塔。' },
+      { form: '果酱',   eu: ['普罗旺斯','西西里','托斯卡纳','江南','暹罗'],       time: 28, px: 0.80, descTpl: '果香浓缩的${F}果酱。' },
+      { form: '果茶',   eu: ['普罗旺斯','西西里','托斯卡纳','江南','暹罗'],       time: 15, px: 0.90, descTpl: '鲜果缀入茶汤的清爽${F}果茶。' },
+      { form: '果汁',   eu: ['西西里','普罗旺斯','佛罗伦萨','江南','暹罗'],       time: 12, px: 0.80, descTpl: '鲜榨现调、维c满溢的${F}果汁。' },
+      { form: '水果塔', eu: ['佛罗伦萨','巴黎','维也纳','巴塞罗那','京都'],       time: 42, px: 1.15, descTpl: '缤纷果片层叠的${F}水果塔。' },
+      { form: '果冻',   eu: ['巴黎','布鲁塞尔','维也纳','京都','都柏林'],         time: 24, px: 0.85, descTpl: '晶莹弹滑的${F}果冻。' }
+    ]
+  },
+  // ===== 肉基底 meat：主食/咸点 =====
+  meat: {
+    cat: '主食', station: 'stove',
+    forms: [
+      { form: '肉派',   eu: ['康沃尔','约克郡','勃艮第','佛罗伦萨','布达佩斯'],   time: 48, px: 1.20, descTpl: '酥皮锁汁、肉馅饱满的${F}肉派。' },
+      { form: '咸派',   eu: ['洛林','勃艮第','托斯卡纳','佛罗伦萨','爱丁堡'],     time: 45, px: 1.15, descTpl: '蛋奶液与肉丁同焙的${F}咸派。' },
+      { form: '馅饼',   eu: ['康沃尔','阿尔萨斯','都灵','布拉格','塞维利亚'],     time: 38, px: 1.00, descTpl: '皮薄汁多的${F}肉馅饼。' },
+      { form: '烩肉',   eu: ['勃艮第','托斯卡纳','安达卢西亚','布达佩斯','里昂'], time: 55, px: 1.15, descTpl: '红酒慢煨、软烂入味的${F}烩肉。' },
+      { form: '肉丸',   eu: ['那不勒斯','斯德哥尔摩','维也纳','布拉格','巴塞罗那'], time: 32, px: 0.95, descTpl: '手打弹牙的${F}肉丸。' },
+      { form: '烤肉卷', eu: ['伊斯坦布尔','那不勒斯','维也纳','马德里','布拉格'],   time: 35, px: 1.05, descTpl: '饼皮裹着现烤肉丝的${F}烤肉卷。' },
+      { form: '浓汤',   eu: ['约克郡','都柏林','勃艮第','巴伐利亚','爱丁堡'],     time: 42, px: 1.00, descTpl: '醇厚暖胃的${F}浓汤。' }
+    ]
+  },
+  // ===== 蔬/淀粉基底 veg：主食/配菜 =====
+  veg: {
+    cat: '主食', station: 'stove',
+    forms: [
+      { form: '鲜蔬煲', eu: ['普罗旺斯','托斯卡纳','江南','暹罗','安达卢西亚'],   time: 30, px: 0.90, descTpl: '时蔬慢煨、清甜回甘的${F}鲜蔬煲。' },
+      { form: '蔬菜派', eu: ['康沃尔','洛林','托斯卡纳','佛罗伦萨','维也纳'],     time: 42, px: 1.00, descTpl: '田园时蔬裹入酥皮的${F}蔬菜派。' },
+      { form: '沙拉',   eu: ['普罗旺斯','托斯卡纳','雅典','江南','暹罗'],         time: 18, px: 0.80, descTpl: '新鲜爽脆、油醋提味的${F}沙拉。' },
+      { form: '炖菜',   eu: ['普罗旺斯','安达卢西亚','布达佩斯','都灵','江南'],   time: 45, px: 0.95, descTpl: '一锅慢炖、五味交融的${F}炖菜。' },
+      { form: '薯泥',   eu: ['约克郡','爱丁堡','布鲁塞尔','巴伐利亚','哥本哈根'], time: 28, px: 0.85, descTpl: '绵密顺滑、奶香四溢的${F}薯泥。' },
+      { form: '芋圆',   eu: ['京都','暹罗','澎湖','江南','巴厘'],                 time: 24, px: 0.80, descTpl: '手工揉制的${F}芋圆小料，嚼劲十足。' }
+    ]
+  },
+  // ===== 调味基底 season：给已有品类加风味，不单独成菜 =====
+  season: null,
+  // ===== 水基底 water：饮品/主食（粥汤） =====
+  water: {
+    cat: '饮品', station: 'bar',
+    forms: [
+      { form: '花茶',   eu: ['普罗旺斯','江南','京都','摩洛哥','托斯卡纳'],       time: 14, px: 0.80, descTpl: '清冽甘甜、花香萦绕的${F}花茶。' },
+      { form: '柠檬饮', eu: ['西西里','普罗旺斯','暹罗','江南','佛罗伦萨'],       time: 12, px: 0.78, descTpl: '清爽解渴的${F}柠檬饮。' },
+      { form: '灵泉',   eu: ['阿尔卑斯','喀尔巴阡','苏格兰','挪威','瑞士'],       time: 8,  px: 0.60, descTpl: '蕴含微弱魔力波动的${F}灵泉。' }
+    ]
+  },
+  other: {
+    cat: '主食', station: 'stove',
+    forms: [
+      { form: '秘制大餐', eu: ['勃艮第','托斯卡纳','安达卢西亚','江南','暹罗'],   time: 45, px: 1.00, descTpl: '以秘境奇材慢火烹调的${F}招牌大餐。' },
+      { form: '奇幻点心', eu: ['维也纳','巴黎','京都','佛罗伦萨','布拉格'],       time: 35, px: 0.95, descTpl: '造型别致、风味奇妙的${F}奇幻点心。' }
+    ]
+  }
+};
+
+/* —— 3. 风味词库：把基底翻译成"菜品名里能出现的风味修饰" —— */
+const FLAVOR_WORD = {
+  flour:  ['麦香','全麦','黑麦','燕麦','杂粮'],
+  rice:   ['稻香','玄米','紫米','椰香','野米'],
+  tea:    ['茶香','焙茶','伯爵','茉莉','大吉岭'],
+  dairy:  ['牛乳','奶油','芝士','黄油','奶霜'],
+  egg:    ['蛋奶','焦糖蛋','云朵蛋','法式蛋'],
+  sweet:  ['蜜糖','焦糖','香草','桂花','枫糖'],
+  meat:   ['炭烤','烟熏','红酒','香草','香煎'],
+  fruit:  ['莓果','柑橘','蜜桃','热带果','覆盆子'],
+  veg:    ['田园','松露','香草','海盐','时蔬'],
+  season: ['辛香','胡椒','海盐','香草','烟熏'],
+  water:  ['清泉','冰萃','晨露','雪顶','灵泉'],
+  other:  ['秘境','星辰','月光','幻光','奇迹']
+};
+
+/* —— 4. 已生成名记录（运行时） —— */
+const _generatedNameSet = new Set();
+function _rememberNames() {
+  _generatedNameSet.clear();
+  if (!game || !game.recipes) return;
+  Object.keys(game.recipes).forEach(function (n) {
+    if (game.recipes[n].unlocked) _generatedNameSet.add(n);
+  });
+}
+
+/* —— 5. 核心：根据两材料 + 区域，生成（品类, 名称, 描述, 售价, 耗时）
+ *     返回 null 表示这个区域/组合无法产出（交回上层处理） */
+function generateDishByEngine(m1, m2, station, budget) {
+  var k1 = baseKind(m1), k2 = baseKind(m2);
+  var pool = CUISINE_POOLS[k1] || CUISINE_POOLS.other;
+  // 灶台细分做法：由第二材料或预算倾向决定"凉拌/热菜/炒菜/炖菜/炖汤"的用词微调
+  var methodHint = '';
+  if (station === 'stove') {
+    if (/凉拌|冷拌|沙拉/.test((m1 + m2))) methodHint = '凉拌';
+    else if (budget >= 150) methodHint = '炖';          // 高预算→慢炖/炖汤
+    else if (/汤|煲|浓汤|灵泉|水/.test(m1 + m2)) methodHint = '炖汤';
+    else methodHint = (Math.random() < 0.5) ? '炒' : '热菜';
+  }
+  // 组装候选风味：主基底提供欧式地名，辅料提供风味词
+  // 优先级：有实质风味的辅料（果/肉/乳/蛋/甜/茶/蔬/米）> 主基底；水与调味不抢风味
+  var flavorSrc = k1;
+  if (k2 !== k1 && k2 !== 'season' && k2 !== 'water') {
+    flavorSrc = k2;
+  } else if (k1 === 'water' && k2 !== 'water' && k2 !== 'season') {
+    flavorSrc = k2; // 主基底是水时，用辅料定风味（例：水+牛奶 → 牛乳风味）
+  }
+  var fwList = FLAVOR_WORD[flavorSrc] || FLAVOR_WORD.other;
+  var forms = (pool && pool.forms) ? pool.forms.slice() : CUISINE_POOLS.other.forms.slice();
+
+  // 随机打乱品类池，便于同组合出不同品类
+  for (var i = forms.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = forms[i]; forms[i] = forms[j]; forms[j] = t;
+  }
+
+  var budgetTier = (budget >= 150) ? 2 : (budget >= 60) ? 1 : 0;
+  var cat = (pool && pool.cat) ? pool.cat : '主食';
+
+  for (var f = 0; f < forms.length; f++) {
+    var cand = forms[f];
+    // 品质越高，欧式修饰越华丽：1个(普通) / 2个(精良) / 3个(史诗)修饰前缀
+    var eu = cand.eu.slice();
+    for (var a = eu.length - 1; a > 0; a--) {
+      var b = Math.floor(Math.random() * (a + 1)); var tmp = eu[a]; eu[a] = eu[b]; eu[b] = tmp;
+    }
+    var prefixCount = budgetTier + 1; // 1/2/3
+    var prefixes = eu.slice(0, Math.min(prefixCount, eu.length)).join('·');
+    var fw = fwList[Math.floor(Math.random() * fwList.length)];
+    var name = prefixes + '『' + fw + cand.form + '』';
+
+    // 做法微调：替换品类词前的行为动词（仅描述，不影响品类名本身）
+    var desc = cand.descTpl.replace('${F}', fw);
+    if (station === 'stove') {
+      if (methodHint === '凉拌') desc = '冷调轻拌、清爽开胃的' + fw + cand.form + '。';
+      else if (methodHint === '炖' || methodHint === '炖汤') desc = '慢火细炖、汤汁醇厚的' + fw + cand.form + '。';
+      else if (methodHint === '炒') desc = '猛火快炒、镬气十足的' + fw + cand.form + '。';
+      else desc = '现点现做、热气腾腾的' + fw + cand.form + '。';
+    }
+
+    if (_generatedNameSet.has(name)) continue; // 完全同名 → 跳过（去重核心）
+
+    var basePrice = Math.round(28 * cand.px + (budgetTier * 22));
+    var priceMult = (budget === 150) ? 2.6 : (budget === 60) ? 1.6 : 1.0;
+    var sellPrice = Math.floor(basePrice * priceMult);
+    var time = cand.time + (budgetTier === 2 ? 15 : budgetTier === 1 ? 5 : 0);
+    _generatedNameSet.add(name);
+    return { name: name, cat: cat, station: station, time: time, sellPrice: sellPrice, desc: desc };
+  }
+  return null; // 该池已穷尽（全部重名），上层会提示换组合
+}
+
+
+function migrateGameData() {
+  // 完整新员工池模板（含结构化专属技能），用于初始化与老存档补齐
+  var STAFF_TEMPLATE = {
+    '初级销售莉莉': { name: '莉莉', avatar: '莉', role: '初级销售', subType: 'sales', type: 'in_store', assigned: false, hired: false, cost: 30, wage: 8, fatigue: 0, loyalty: 50, status: '空闲', desc: '初级销售员，轻度提升售价(+10%)与客人耐心(+15%)。', skill: { type: 'sales_price', target: 'all', value: 1.10, label: '售价+10%' }, skill2: { type: 'sales_patience', target: 'all', value: 1.15, label: '耐心+15%' } },
+    '初级销售塔克': { name: '塔克', avatar: '塔', role: '初级销售', subType: 'sales', type: 'in_store', assigned: false, hired: false, cost: 32, wage: 9, fatigue: 0, loyalty: 50, status: '空闲', desc: '热情的兼职生，能让到店客人更有耐心(+25%)，但售价加成较弱。', skill: { type: 'sales_patience', target: 'all', value: 1.25, label: '耐心+25%' } },
+    '高级销售维维': { name: '维维', avatar: '维', role: '高级销售', subType: 'sales', type: 'in_store', assigned: false, hired: false, cost: 70, wage: 18, fatigue: 0, loyalty: 55, status: '空闲', desc: '高级销售专家，售价(+25%)与客人耐心(+30%)双提升。', skill: { type: 'sales_price', target: 'all', value: 1.25, label: '售价+25%' }, skill2: { type: 'sales_patience', target: 'all', value: 1.30, label: '耐心+30%' } },
+    '高级销售诺拉': { name: '诺拉', avatar: '诺', role: '高级销售', subType: 'sales', type: 'in_store', assigned: false, hired: false, cost: 78, wage: 20, fatigue: 0, loyalty: 56, status: '空闲', desc: '议价高手，专精把饮品吧台售价抬得更高(+35%)，其余品类一般(+10%)。', skill: { type: 'sales_price', target: 'bar', value: 1.35, label: '吧台售价+35%' }, skill2: { type: 'sales_price', target: 'all', value: 1.10, label: '其余售价+10%' } },
+    '高级销售杰斯': { name: '杰斯', avatar: '杰', role: '高级销售', subType: 'sales', type: 'in_store', assigned: false, hired: false, cost: 75, wage: 19, fatigue: 0, loyalty: 55, status: '空闲', desc: '接待达人，负责自动为到店客人接单，让你无后顾之忧。', skill: { type: 'sales_autoaccept', target: 'all', value: 1, label: '自动接单' } },
+    '皇家销售卡琳': { name: '卡琳', avatar: '卡', role: '皇家销售', subType: 'sales', type: 'in_store', assigned: false, hired: false, cost: 140, wage: 38, fatigue: 0, loyalty: 65, status: '空闲', desc: '金牌销售大师，售价暴增(+50%)并大幅提高客人耐心(+50%)。', skill: { type: 'sales_price', target: 'all', value: 1.50, label: '售价+50%' }, skill2: { type: 'sales_patience', target: 'all', value: 1.50, label: '耐心+50%' } },
+    '皇家销售奥利安': { name: '奥利安', avatar: '奥', role: '皇家销售', subType: 'sales', type: 'in_store', assigned: false, hired: false, cost: 155, wage: 42, fatigue: 0, loyalty: 66, status: '空闲', desc: '贵宾招待专家，烘焙区售价拉满(+60%)，并附带自动接单服务。', skill: { type: 'sales_price', target: 'oven', value: 1.60, label: '烘焙售价+60%' }, skill2: { type: 'sales_autoaccept', target: 'all', value: 1, label: '自动接单' } },
+    '皇家销售米拉': { name: '米拉', avatar: '米', role: '皇家销售', subType: 'sales', type: 'in_store', assigned: false, hired: false, cost: 150, wage: 40, fatigue: 0, loyalty: 65, status: '空闲', desc: '魅力女王，客人耐心暴涨(+70%)，同时全品类售价稳健提升(+30%)。', skill: { type: 'sales_patience', target: 'all', value: 1.70, label: '耐心+70%' }, skill2: { type: 'sales_price', target: 'all', value: 1.30, label: '售价+30%' } },
+    '初级帮厨老布': { name: '老布', avatar: '布', role: '初级帮厨', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 35, wage: 8, fatigue: 0, loyalty: 50, status: '空闲', desc: '烘焙帮厨，烤箱耗时缩减20%，成品出炉自动上菜。', skill: { type: 'chef_speed', target: 'oven', value: 0.80, label: '烤箱-20%耗时' }, skill2: { type: 'chef_autoserve', target: 'all', value: 1, label: '自动上菜' } },
+    '初级帮厨芬恩': { name: '芬恩', avatar: '芬', role: '初级帮厨', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 33, wage: 8, fatigue: 0, loyalty: 50, status: '空闲', desc: '灶台学徒，专精主食灶台，让炖煮炒菜耗时缩短18%。', skill: { type: 'chef_speed', target: 'stove', value: 0.82, label: '灶台-18%耗时' } },
+    '初级帮厨波波': { name: '波波', avatar: '波', role: '初级帮厨', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 32, wage: 7, fatigue: 0, loyalty: 49, status: '空闲', desc: '饮品学徒，让吧台调饮制作耗时缩短18%。', skill: { type: 'chef_speed', target: 'bar', value: 0.82, label: '吧台-18%耗时' } },
+    '高级大厨莫里斯': { name: '莫里斯', avatar: '莫', role: '高级大厨', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 85, wage: 22, fatigue: 0, loyalty: 55, status: '空闲', desc: '灶台主厨，所有烹饪制作时间缩减35%。', skill: { type: 'chef_speed', target: 'all', value: 0.65, label: '全区域-35%耗时' } },
+    '高级面点师露娜': { name: '露娜', avatar: '露', role: '高级面点师', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 90, wage: 24, fatigue: 0, loyalty: 56, status: '空闲', desc: '面点女王，烤箱与吧台制作耗时大减(-45%)，灶台小幅(-15%)。', skill: { type: 'chef_speed', target: 'oven', value: 0.55, label: '烤箱-45%耗时' }, skill2: { type: 'chef_speed', target: 'bar', value: 0.55, label: '吧台-45%耗时' }, skill3: { type: 'chef_speed', target: 'stove', value: 0.85, label: '灶台-15%耗时' } },
+    '高级灶台师格鲁': { name: '格鲁', avatar: '格', role: '高级灶台师', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 88, wage: 23, fatigue: 0, loyalty: 55, status: '空闲', desc: '爆炒宗师，主食灶台耗时骤降(-50%)，并让成品自动上菜。', skill: { type: 'chef_speed', target: 'stove', value: 0.50, label: '灶台-50%耗时' }, skill2: { type: 'chef_autoserve', target: 'all', value: 1, label: '自动上菜' } },
+    '皇家主厨艾莉丝': { name: '艾莉丝', avatar: '艾', role: '皇家主厨', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 160, wage: 45, fatigue: 0, loyalty: 65, status: '空闲', desc: '宫廷御膳大师，所有烹饪制作时间直接减半(-50%)！', skill: { type: 'chef_speed', target: 'all', value: 0.50, label: '全区域-50%耗时' } },
+    '皇家甜点师塞西尔': { name: '塞西尔', avatar: '塞', role: '皇家甜点师', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 175, wage: 50, fatigue: 0, loyalty: 66, status: '空闲', desc: '皇家甜点巨匠，烤箱耗时锐减(-62%)，吧台(-40%)，成品全部自动上菜。', skill: { type: 'chef_speed', target: 'oven', value: 0.38, label: '烤箱-62%耗时' }, skill2: { type: 'chef_speed', target: 'bar', value: 0.60, label: '吧台-40%耗时' }, skill3: { type: 'chef_autoserve', target: 'all', value: 1, label: '自动上菜' } },
+    '皇家灶台师达贡': { name: '达贡', avatar: '达', role: '皇家灶台师', subType: 'chef', type: 'in_store', assigned: false, hired: false, cost: 170, wage: 48, fatigue: 0, loyalty: 65, status: '空闲', desc: '皇家御灶统领，灶台耗时暴降(-62%)，全区域小幅加速(-20%)。', skill: { type: 'chef_speed', target: 'stove', value: 0.38, label: '灶台-62%耗时' }, skill2: { type: 'chef_speed', target: 'all', value: 0.80, label: '其余-20%耗时' } },
+    '初级采集员小狼': { name: '小狼', avatar: '狼', role: '初级采集员', subType: 'expedition', type: 'expedition', assigned: false, hired: false, cost: 25, wage: 6, fatigue: 0, loyalty: 50, status: '空闲', desc: '敏捷采集员，野外远征耗时缩减15%（做菜速度不受影响）。', skill: { type: 'expedition_speed', target: 'all', value: 0.85, label: '远征-15%耗时' } },
+    '初级采集员朵拉': { name: '朵拉', avatar: '朵', role: '初级采集员', subType: 'expedition', type: 'expedition', assigned: false, hired: false, cost: 27, wage: 7, fatigue: 0, loyalty: 51, status: '空闲', desc: '运气不错的采集员，远征时有几率带回双倍物资。', skill: { type: 'expedition_double', target: 'all', value: 1, label: '远征双倍掉落' } },
+    '高级采集师艾拉': { name: '艾拉', avatar: '艾', role: '高级采集师', subType: 'expedition', type: 'expedition', assigned: false, hired: false, cost: 62, wage: 16, fatigue: 0, loyalty: 56, status: '空闲', desc: '资深采集师，远征耗时缩减35%，并稳定带回双倍物资。', skill: { type: 'expedition_speed', target: 'all', value: 0.65, label: '远征-35%耗时' }, skill2: { type: 'expedition_double', target: 'all', value: 1, label: '远征双倍掉落' } },
+    '高级采集师霍克': { name: '霍克', avatar: '霍', role: '高级采集师', subType: 'expedition', type: 'expedition', assigned: false, hired: false, cost: 66, wage: 17, fatigue: 0, loyalty: 56, status: '空闲', desc: '疾风探路者，专精缩短远征耗时(-45%)，是效率至上主义者。', skill: { type: 'expedition_speed', target: 'all', value: 0.55, label: '远征-45%耗时' } },
+    '资深采集长雷恩': { name: '雷恩', avatar: '雷', role: '资深采集长', subType: 'expedition', type: 'expedition', assigned: false, hired: false, cost: 110, wage: 30, fatigue: 0, loyalty: 65, status: '空闲', desc: '探险队长，远征耗时缩减50%并带回双倍珍稀物资。', skill: { type: 'expedition_speed', target: 'all', value: 0.50, label: '远征-50%耗时' }, skill2: { type: 'expedition_double', target: 'all', value: 1, label: '远征双倍掉落' } },
+    '资深采集导师芙蕾': { name: '芙蕾', avatar: '芙', role: '资深采集导师', subType: 'expedition', type: 'expedition', assigned: false, hired: false, cost: 120, wage: 34, fatigue: 0, loyalty: 66, status: '空闲', desc: '传奇寻宝导师，远征耗时锐减(-62%)且必定带回双倍珍稀物资。', skill: { type: 'expedition_speed', target: 'all', value: 0.38, label: '远征-62%耗时' }, skill2: { type: 'expedition_double', target: 'all', value: 1, label: '远征双倍掉落' } },
+    '资深侦察兵凯尔': { name: '凯尔', avatar: '凯', role: '资深侦察兵', subType: 'expedition', type: 'expedition', assigned: false, hired: false, cost: 115, wage: 32, fatigue: 0, loyalty: 65, status: '空闲', desc: '暗影侦察兵，全队远征耗时再降(-55%)，擅长速战速决。', skill: { type: 'expedition_speed', target: 'all', value: 0.45, label: '远征-55%耗时' } }
+  };
+
+  if (!game.staff) {
+    game.staff = JSON.parse(JSON.stringify(STAFF_TEMPLATE));
+  } else {
+    // 老存档补齐：为缺少结构化技能字段的员工补上（保留玩家已雇佣/派驻等进度）
+    for (var sid in STAFF_TEMPLATE) {
+      if (!game.staff[sid]) {
+        game.staff[sid] = JSON.parse(JSON.stringify(STAFF_TEMPLATE[sid]));
+      } else {
+        var tpl = STAFF_TEMPLATE[sid];
+        if (!game.staff[sid].skill && tpl.skill) game.staff[sid].skill = tpl.skill;
+        if (!game.staff[sid].skill2 && tpl.skill2) game.staff[sid].skill2 = tpl.skill2;
+        if (!game.staff[sid].skill3 && tpl.skill3) game.staff[sid].skill3 = tpl.skill3;
+      }
+    }
+  }
+  if (!game.characters) {
+    game.characters = { 'manager': { id: 'manager', name: '店长(你)', isHired: true, expeditionId: null, todayCount: 0 } };
+  }
+  // 补齐 characters 中缺失的新员工条目
+  for (var sid2 in STAFF_TEMPLATE) {
+    if (!game.characters[sid2]) {
+      game.characters[sid2] = { id: sid2, name: STAFF_TEMPLATE[sid2].name, isHired: false, expeditionId: null, todayCount: 0 };
+    }
+  }
+  for (let sid in game.staff) {
+    if (game.characters[sid]) {
+      game.staff[sid].hired = game.characters[sid].isHired;
+    }
+    if (!game.staff[sid].subType) {
+      game.staff[sid].subType = game.staff[sid].type === 'in_store' ? 'chef' : 'expedition';
+    }
+  }
+  if (!game.ovens) game.ovens = [{ baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null }, { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null }, { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null }];
+  if (!game.bars) game.bars = [{ baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null }, { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null }, { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null }];
+  if (!game.stoves) game.stoves = [{ baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null }, { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null }, { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null }];
+  if (!game.customers) game.customers = [];
+  if (game.atmosphere === undefined) game.atmosphere = 0;
+  if (game.waterTodayCount === undefined) game.waterTodayCount = 0;
+  if (!game.expeditions) game.expeditions = [];
+  if (!game.currentEvent) game.currentEvent = "店铺客流平稳，环境舒适。";
+
+  for (let [k, d] of Object.entries(game.decorations)) {
+    if (d.level === undefined) d.level = d.bought ? 1 : 0;
+    if (d.maxLevel === undefined) d.maxLevel = 3;
+  }
+}
+
+function isStationUnlocked(stationType) {
+  if (stationType === 'oven') return true;
+  if (stationType === 'bar') {
+    return game.decorations['精灵饮品吧台'] && game.decorations['精灵饮品吧台'].bought;
+  }
+  if (stationType === 'stove') {
+    return game.decorations['魔法主食灶台'] && game.decorations['魔法主食灶台'].bought;
+  }
+  return false;
+}
+
+// 通用：收集所有「已雇佣 + 已派驻 + 未偷懒」员工的全部技能条目（skill/skill2/skill3）
+// 返回数组 [{type, target, value, label}, ...]，供各系统按 type/target 累加
+function getActiveSkills() {
+  var out = [];
+  for (var sid in game.staff) {
+    var s = game.staff[sid];
+    if (!s || !s.hired || !s.assigned || s.status === '偷懒中') continue;
+    [s.skill, s.skill2, s.skill3].forEach(function (sk) {
+      if (sk && sk.type) out.push(sk);
+    });
+  }
+  return out;
+}
+// 通用：判断是否有任意已激活员工拥有指定技能类型（如自动接单）
+function hasActiveSkillType(type) {
+  var skills = getActiveSkills();
+  for (var i = 0; i < skills.length; i++) {
+    if (skills[i].type === type) return true;
+  }
+  return false;
+}
+// 通用：按技能类型与制作区域(station)，计算所有匹配技能的乘积倍率（越小/越大按 direction 决定累加方式）
+// direction='multiply-small' 对 speed(时间倍率，越小越快) 取最小值；direction='multiply-big' 对 price/patience(倍率越大越强) 取最大值
+function calcSkillFactor(type, station, direction) {
+  var skills = getActiveSkills();
+  var factor = direction === 'multiply-small' ? 999 : 0;
+  for (var i = 0; i < skills.length; i++) {
+    var sk = skills[i];
+    if (sk.type !== type) continue;
+    if (sk.target !== 'all' && sk.target !== station) continue;
+    if (direction === 'multiply-small') {
+      factor = Math.min(factor, sk.value);
+    } else {
+      factor = Math.max(factor, sk.value);
+    }
+  }
+  if (direction === 'multiply-small' && factor === 999) factor = 1.0;
+  if (direction === 'multiply-big' && factor === 0) factor = 1.0;
+  return factor;
+}
+
+// Get active sales bonus multiplier for dish prices & customer patience
+function getSalesMultiplier() {
+  // 售价倍率：所有已激活销售的 sales_price 技能取最大值（越大越强）
+  let mult = calcSkillFactor('sales_price', 'all', 'multiply-big');
+  // 耐心倍率：所有已激活销售的 sales_patience 技能取最大值（越大越强）
+  let patienceBonus = calcSkillFactor('sales_patience', 'all', 'multiply-big');
+
+  // 兜底兼容：若没有任何结构化技能生效，则沿用旧版写死的三档加成（保障老存档）
+  let hasAnySalesSkill = false;
+  var _sk = getActiveSkills();
+  for (var _i = 0; _i < _sk.length; _i++) {
+    if (_sk[_i].type === 'sales_price' || _sk[_i].type === 'sales_patience') { hasAnySalesSkill = true; break; }
+  }
+  if (!hasAnySalesSkill) {
+    if (game.staff['皇家销售卡琳'] && game.staff['皇家销售卡琳'].hired && game.staff['皇家销售卡琳'].assigned && game.staff['皇家销售卡琳'].status !== '偷懒中') {
+      mult = 1.5; patienceBonus = 1.5;
+    } else if (game.staff['高级销售维维'] && game.staff['高级销售维维'].hired && game.staff['高级销售维维'].assigned && game.staff['高级销售维维'].status !== '偷懒中') {
+      mult = 1.25; patienceBonus = 1.3;
+    } else if (game.staff['初级销售莉莉'] && game.staff['初级销售莉莉'].hired && game.staff['初级销售莉莉'].assigned && game.staff['初级销售莉莉'].status !== '偷懒中') {
+      mult = 1.1; patienceBonus = 1.15;
+    }
+  }
+  return { priceMult: mult, patienceMult: patienceBonus };
+}
+
+function spawnCustomer() {
+  if (!game.shopOpen) return;
+  if (game.customers.length >= 4) return;
+
+  const unlockedRecipes = Object.keys(game.recipes).filter(n => game.recipes[n].unlocked);
+  if (unlockedRecipes.length === 0) return;
+
+  const targetDish = unlockedRecipes[Math.floor(Math.random() * unlockedRecipes.length)];
+  const r = game.recipes[targetDish];
+
+  if (!r || !isStationUnlocked(r.station)) {
+    return;
+  }
+
+  const customerTypes = ['普通旅人', '饥饿冒险者', '贵族食客', '精灵学者', '吟游诗人'];
+  const cName = customerTypes[Math.floor(Math.random() * customerTypes.length)];
+
+  const salesInfo = getSalesMultiplier();
+  const orderPatience = Math.floor(20 * salesInfo.patienceMult);
+  const tableBonus = (game.decorations['秘境堂食木桌椅'] && game.decorations['秘境堂食木桌椅'].bought) ? (1 + 0.15 * game.decorations['秘境堂食木桌椅'].level) : 1.0;
+  const foodPatience = Math.floor(65 * tableBonus * salesInfo.patienceMult);
+
+  const newCust = {
+    id: 'cust_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+    name: cName,
+    wantDish: targetDish,
+    state: 'ordering',
+    orderTimer: orderPatience,
+    maxOrderTimer: orderPatience,
+    foodTimer: foodPatience,
+    maxFoodTimer: foodPatience,
+    assignedSlot: null
+  };
+
+  game.customers.push(newCust);
+  tryAutoAcceptBySales(newCust);
+}
+
+function tryAutoAcceptBySales(cust) {
+  // 任意已激活销售拥有 sales_autoaccept 技能即可自动接单；兜底兼容旧版三员工
+  const hasSales = hasActiveSkillType('sales_autoaccept') ||
+                   (game.staff['皇家销售卡琳']?.hired && game.staff['皇家销售卡琳']?.assigned && game.staff['皇家销售卡琳']?.status !== '偷懒中') ||
+                   (game.staff['高级销售维维']?.hired && game.staff['高级销售维维']?.assigned && game.staff['高级销售维维']?.status !== '偷懒中') ||
+                   (game.staff['初级销售莉莉']?.hired && game.staff['初级销售莉莉']?.assigned && game.staff['初级销售莉莉']?.status !== '偷懒中');
+  if (!hasSales) return;
+  acceptCustomerOrder(cust.id);
+}
+
+function acceptCustomerOrder(custId) {
+  const cust = game.customers.find(c => c.id === custId);
+  if (!cust || cust.state !== 'ordering') return;
+
+  const r = game.recipes[cust.wantDish];
+  if (!r) return;
+
+  if (!isStationUnlocked(r.station)) {
+    const stationName = r.station === 'bar' ? '精灵吧台（饮品区）' : '魔法主食灶台（主食区）';
+    showToast(`【接单失败】您尚未购买解锁【${stationName}】，无法制作【${cust.wantDish}】！客人生气离开了。`);
+    removeCustomer(custId);
+    return;
+  }
+
+  let canMake = true;
+  for (const [ing, amt] of Object.entries(r.ingredients)) {
+    if ((game.inventory[ing] || 0) < amt) {
+      canMake = false;
+      break;
+    }
+  }
+
+  if (!canMake) {
+    showToast(`材料不足无法接单制作【${cust.wantDish}】！客人生气离开了。`);
+    removeCustomer(custId);
+    return;
+  }
+
+  const stationType = r.station;
+  let targetSlotIdx = -1;
+  let slotsArr = stationType === 'oven' ? game.ovens : stationType === 'bar' ? game.bars : game.stoves;
+
+  for (let i = 0; i < slotsArr.length; i++) {
+    if (!slotsArr[i].baking && !slotsArr[i].finishedDish) {
+      targetSlotIdx = i;
+      break;
+    }
+  }
+
+  if (targetSlotIdx === -1) {
+    showToast(`没有空闲的制作槽来接单！`);
+    return;
+  }
+
+  for (const [ing, amt] of Object.entries(r.ingredients)) {
+    game.inventory[ing] -= amt;
+    game.todayCost += (marketPrices[ing] || 2) * amt;
+  }
+
+  // Calculate Chef time speed reduction
+  // NOTE: Gathering staff (小狼/雷恩) explicitly do NOT reduce cooking speed (Rule 3)
+  // 通用：取当前制作区域(station)匹配的 chef_speed 技能最小值（越小越快），兼容全区域技能
+  let speedMultiplier = calcSkillFactor('chef_speed', stationType, 'multiply-small');
+  // 兜底兼容：若无结构化 chef_speed 技能生效，则沿用旧版三档写死倍率
+  let _anyChefSpeed = false;
+  var _csk = getActiveSkills();
+  for (var _ci = 0; _ci < _csk.length; _ci++) { if (_csk[_ci].type === 'chef_speed') { _anyChefSpeed = true; break; } }
+  if (!_anyChefSpeed) {
+    if (game.staff['皇家主厨艾莉丝'] && game.staff['皇家主厨艾莉丝'].hired && game.staff['皇家主厨艾莉丝'].assigned && game.staff['皇家主厨艾莉丝'].status !== '偷懒中') {
+      speedMultiplier = 0.5; // -50% time
+    } else if (game.staff['高级大厨莫里斯'] && game.staff['高级大厨莫里斯'].hired && game.staff['高级大厨莫里斯'].assigned && game.staff['高级大厨莫里斯'].status !== '偷懒中') {
+      speedMultiplier = 0.65; // -35% time
+    } else if (game.staff['初级帮厨老布'] && game.staff['初级帮厨老布'].hired && game.staff['初级帮厨老布'].assigned && game.staff['初级帮厨老布'].status !== '偷懒中') {
+      speedMultiplier = 0.8; // -20% time
+    }
+  }
+
+  let cookTime = Math.floor(r.time * speedMultiplier);
+
+  cust.state = 'waiting_food';
+  cust.assignedSlot = { stationType, slotIdx: targetSlotIdx };
+
+  slotsArr[targetSlotIdx] = {
+    baking: cust.wantDish,
+    finishedDish: null,
+    endTime: Date.now() + cookTime * 1000,
+    assignedCustomerId: cust.id,
+    servedBy: null
+  };
+
+  showToast(`成功接单！【${cust.name}】正在等待品尝【${cust.wantDish}】`);
+  renderShop(); renderMiniPhoneGuide();
+  saveGame();
+}
+
+function removeCustomer(custId) {
+  for (let st of ['oven', 'bar', 'stove']) {
+    let arr = st === 'oven' ? game.ovens : st === 'bar' ? game.bars : game.stoves;
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i].assignedCustomerId === custId && !arr[i].finishedDish) {
+        arr[i] = { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null };
+      }
+    }
+  }
+  game.customers = game.customers.filter(c => c.id !== custId);
+  renderShop(); renderMiniPhoneGuide();
+}
+
+// ==================== MATERIAL SELECTOR & LAB LOGIC ====================
+function switchMatATab(tabKey) {
+  currentMatATabKey = tabKey;
+  const container = document.getElementById('matATabs');
+  if (container) {
+    container.querySelectorAll('.tab-btn').forEach((btn, idx) => {
+      const keys = ['staple', 'meat', 'veg', 'condiment'];
+      if (keys[idx] === tabKey) btn.classList.add('active');
+      else btn.classList.remove('active');
+    });
+  }
+  updateLabDropdownA();
+}
+
+function switchMatBTab(tabKey) {
+  currentMatBTabKey = tabKey;
+  const container = document.getElementById('matBTabs');
+  if (container) {
+    container.querySelectorAll('.tab-btn').forEach((btn, idx) => {
+      const keys = ['staple', 'meat', 'veg', 'condiment'];
+      if (keys[idx] === tabKey) btn.classList.add('active');
+      else btn.classList.remove('active');
+    });
+  }
+  updateLabDropdownB();
+}
+
+function updateLabDropdowns() {
+  migrateGameData();
+  updateLabDropdownA();
+  updateLabDropdownB();
+}
+
+function getAllItemsForCategory(catKey) {
+  const catItemsObj = marketCategories[catKey] ? marketCategories[catKey].items : {};
+  return Object.keys(catItemsObj);
+}
+
+function updateLabDropdownA() {
+  const selectElem = document.getElementById('labMatA');
+  const descElem = document.getElementById('matADesc');
+  if (!selectElem) return;
+
+  const currentVal = selectElem.value;
+  const items = getAllItemsForCategory(currentMatATabKey);
+
+  let html = '<option value="">请选择主料A...</option>';
+  for (let item of items) {
+    const qty = game.inventory[item] || 0;
+    if (qty === 0) {
+      html += `<option value="${item}" style="color:#999;">${item} (库存0)</option>`;
+    } else {
+      html += `<option value="${item}">${item} (库存:${qty})</option>`;
+    }
+  }
+  selectElem.innerHTML = html;
+
+  if (currentVal && items.includes(currentVal)) {
+    selectElem.value = currentVal;
+    const qty = game.inventory[currentVal] || 0;
+    descElem.textContent = `已选: ${currentVal} (有${qty})`;
+    if (qty === 0) descElem.style.color = '#d9534f';
+    else descElem.style.color = '#9c8471';
+  } else {
+    descElem.textContent = '已选: 无';
+    descElem.style.color = '#9c8471';
+  }
+
+  selectElem.onchange = function() {
+    const v = selectElem.value;
+    const qty = game.inventory[v] || 0;
+    descElem.textContent = v ? `已选: ${v} (有${qty})` : '已选: 无';
+    if (qty === 0) descElem.style.color = '#d9534f';
+    else descElem.style.color = '#9c8471';
+  };
+}
+
+function updateLabDropdownB() {
+  const selectElem = document.getElementById('labMatB');
+  const descElem = document.getElementById('matBDesc');
+  if (!selectElem) return;
+
+  const currentVal = selectElem.value;
+  const items = getAllItemsForCategory(currentMatBTabKey);
+
+  let html = '<option value="">请选择辅料B...</option>';
+  for (let item of items) {
+    const qty = game.inventory[item] || 0;
+    if (qty === 0) {
+      html += `<option value="${item}" style="color:#999;">${item} (库存0)</option>`;
+    } else {
+      html += `<option value="${item}">${item} (库存:${qty})</option>`;
+    }
+  }
+  selectElem.innerHTML = html;
+
+  if (currentVal && items.includes(currentVal)) {
+    selectElem.value = currentVal;
+    const qty = game.inventory[currentVal] || 0;
+    descElem.textContent = `已选: ${currentVal} (有${qty})`;
+    if (qty === 0) descElem.style.color = '#d9534f';
+    else descElem.style.color = '#9c8471';
+  } else {
+    descElem.textContent = '已选: 无';
+    descElem.style.color = '#9c8471';
+  }
+
+  selectElem.onchange = function() {
+    const v = selectElem.value;
+    const qty = game.inventory[v] || 0;
+    descElem.textContent = v ? `已选: ${v} (有${qty})` : '已选: 无';
+    if (qty === 0) descElem.style.color = '#d9534f';
+    else descElem.style.color = '#9c8471';
+  };
+}
+
+function isMeatItem(item) {
+  const meatList = Object.keys(marketCategories['meat'].items);
+  return meatList.includes(item) || item.includes('肉') || item.includes('鸡') || item.includes('牛') || item.includes('排');
+}
+
+function isFlourOrRice(item) {
+  return item.includes('面粉') || item.includes('黑麦') || item.includes('大米') || item.includes('米') || item.includes('麦');
+}
+
+function isVegItem(item) {
+  const vegList = Object.keys(marketCategories['veg'].items);
+  return vegList.includes(item) || item.includes('菜') || item.includes('蘑菇') || item.includes('土豆') || item.includes('萝卜');
+}
+
+function tryResearch() {
+  const station = document.getElementById('labStation').value;
+  const budget = parseInt(document.getElementById('labBudget').value) || 20;
+  const m1 = document.getElementById('labMatA').value;
+  const m2 = document.getElementById('labMatB').value;
+  
+  if (!m1 || !m2) {
+    showToast('请在上方分类卡片中完整选择主料A与辅料B！');
+    return;
+  }
+
+  if (station === 'bar') {
+    if (isFlourOrRice(m1) || isFlourOrRice(m2) || isMeatItem(m1) || isMeatItem(m2) || isVegItem(m1) || isVegItem(m2)) {
+      showToast('吧台无法处理这种食材，请去灶台或烤箱');
+      return;
+    }
+  }
+
+  const needM1 = (m1 === m2) ? 2 : 1;
+  const needM2 = (m1 === m2) ? 0 : 1;
+
+  if ((game.inventory[m1] || 0) < needM1) {
+    showToast(`【${m1}】不足，请前往集市购买或探索获取`);
+    return;
+  }
+  if (m1 !== m2 && (game.inventory[m2] || 0) < needM2) {
+    showToast(`【${m2}】不足，请前往集市购买或探索获取`);
+    return;
+  }
+
+  if (game.money < budget) {
+    showToast(`研发预算不足！当前预算需要 ${budget} 铜币。`);
+    return;
+  }
+
+  game.money -= budget;
+  game.todayCost += budget;
+
+  game.inventory[m1] -= needM1;
+  if (m1 !== m2) {
+    game.inventory[m2] -= needM2;
+  }
+
+  let qualityPrefix = "";
+  let priceMultiplier = 1.0;
+  if (budget === 60) {
+    qualityPrefix = "精良·";
+    priceMultiplier = 1.6;
+  } else if (budget === 150) {
+    qualityPrefix = "史诗·至臻";
+    priceMultiplier = 2.6;
+  }
+
+  let key1 = `${m1}+${m2}`;
+  let key2 = `${m2}+${m1}`;
+  let preset = classicRecipesPresets[key1] || classicRecipesPresets[key2];
+
+  let recipeName = "";
+  let category = "";
+  let sellPrice = 30;
+  let time = 30;
+  let desc = "";
+
+  // 饮品区铁律：面粉/米/肉/蔬菜类原料一律不得进入吧台
+  if (station === 'bar' && (isBarForbidden(m1) || isBarForbidden(m2))) {
+    showToast('吧台只能调饮茶、奶、糖、水果、花与水，无法处理面粉/米/肉/蔬菜类食材，请去灶台或烤箱');
+    return;
+  }
+
+  _rememberNames(); // 同步已解锁菜单，用于全局去重
+  // v24 归一化：老存档里带"精良·/史诗·至臻"前缀的预设菜名，按本体名并入去重，避免旧名绕过新引擎
+  (function () {
+    var PREFIX = /^((精良·)|(史诗·至臻))+/;
+    Object.keys(game.recipes).forEach(function (oldName) {
+      var base = oldName.replace(PREFIX, '');
+      if (base !== oldName && game.recipes[oldName].unlocked) {
+        _generatedNameSet.add(base);
+        if (game.codex[oldName] && !game.codex[base]) game.codex[base] = game.codex[oldName];
+        if (!game.menu.includes(base)) game.menu.push(base);
+        var r = game.recipes[oldName];
+        if (!game.recipes[base]) game.recipes[base] = { category: r.category, station: r.station, ingredients: r.ingredients, time: r.time, sellPrice: r.sellPrice, unlocked: true, desc: r.desc };
+        else game.recipes[base].unlocked = true;
+        game.recipes[base].sellPrice = Math.max(game.recipes[base].sellPrice || 0, r.sellPrice || 0);
+        if (!game.codex[base]) game.codex[base] = { desc: r.desc, discovered: true };
+        game.codex[base].discovered = true;
+      }
+    });
+  })();
+
+
+  if (preset && preset.station === station) {
+    category = preset.cat;
+    let basePrice = preset.prices[budget] || (preset.prices[20] * priceMultiplier);
+    sellPrice = Math.floor(basePrice);
+    time = preset.time + (budget === 150 ? 15 : budget === 60 ? 5 : 0);
+    recipeName = preset.name; // 预设配方名已按品类命名，不再叠加品质前缀（避免"精良·皇家丝滑奶茶"式叠加）
+    desc = preset.desc + (budget > 20 ? ` 经${budget === 150 ? '皇家烘焙大师' : '资深工匠'}精心特制，风味更上一层。` : '');
+    // 预设配方同样受去重约束：若已存在，仅刷新售价，不重复造名
+    if (_generatedNameSet.has(recipeName)) {
+      if (!game.recipes[recipeName]) game.recipes[recipeName] = {};
+      game.recipes[recipeName].sellPrice = Math.max(game.recipes[recipeName].sellPrice || 0, sellPrice);
+      game.recipes[recipeName].unlocked = true;
+      game.recipes[recipeName].category = category;
+      game.recipes[recipeName].station = station;
+      game.recipes[recipeName].ingredients = (m1 === m2) ? { [m1]: 2 } : { [m1]: 1, [m2]: 1 };
+      game.recipes[recipeName].time = time;
+      game.recipes[recipeName].desc = desc;
+      if (!game.codex[recipeName]) game.codex[recipeName] = { desc: desc, discovered: true };
+      game.codex[recipeName].discovered = true;
+      if (!game.menu.includes(recipeName)) game.menu.push(recipeName);
+      const stationLabel = station === 'oven' ? '【魔法烤箱】' : station === 'bar' ? '【精灵吧台】' : '【魔法灶台】';
+      showToast(`配方【${recipeName}】早已记入菜单，本次为其精研提级至售价 ${sellPrice} 铜（${stationLabel}）！`);
+      renderBake(); renderShop(); renderMiniPhoneGuide(); updateLabDropdowns(); saveGame();
+      return;
+    }
+  } else {
+    // 走品类配方引擎：基底决定品类、做法决定形态、辅料决定风味，全自动命名+去重
+    const eng = generateDishByEngine(m1, m2, station, budget);
+    if (eng) {
+      category = eng.cat;
+      time = eng.time;
+      recipeName = eng.name;
+      desc = eng.desc;
+      sellPrice = eng.sellPrice;
+    } else {
+      // 该组合的品类池已被穷尽（全部同名），提示换材料而非硬造
+      showToast(`「${m1}」与「${m2}」的菜单已经被你研发到底啦！试试换一种材料或换个制作区域，开拓全新菜式。`);
+      renderBake(); updateLabDropdowns(); saveGame();
+      return;
+    }
+  }
+
+  if (!game.recipes[recipeName]) {
+    game.recipes[recipeName] = {
+      category: category,
+      station: station,
+      ingredients: (m1 === m2) ? { [m1]: 2 } : { [m1]: 1, [m2]: 1 },
+      time: time,
+      sellPrice: sellPrice,
+      unlocked: true,
+      desc: desc
+    };
+    game.codex[recipeName] = {
+      desc: desc,
+      discovered: true
+    };
+  } else {
+    game.recipes[recipeName].unlocked = true;
+    game.recipes[recipeName].sellPrice = Math.max(game.recipes[recipeName].sellPrice, sellPrice);
+    _generatedNameSet.add(recipeName); // 旧存档已解锁的菜名纳入去重，避免引擎再次造出同名
+  }
+
+  if (game.codex[recipeName]) game.codex[recipeName].discovered = true;
+  if (!game.menu.includes(recipeName)) {
+    game.menu.push(recipeName);
+  }
+
+  const stationLabel = station === 'oven' ? '【魔法烤箱】' : station === 'bar' ? '【精灵吧台】' : '【魔法灶台】';
+  const tierTxt = budget >= 150 ? '至臻典藏' : budget >= 60 ? '精工细作' : '家常风味';
+  showToast(`灵光一闪！投入 ${budget} 铜币预算，在${stationLabel}以「${tierTxt}」研发出全新菜式【${recipeName}】（售价:${sellPrice}铜）！`);
+  renderBake();
+  renderShop(); renderMiniPhoneGuide();
+  updateLabDropdowns();
+  saveGame();
+}
+
+function showPage(pageId, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderPage(pageId);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderPage(pageId) {
+  migrateGameData();
+  document.getElementById('shopTitleDisplay').textContent = game.shopName;
+  document.getElementById('shopSubTitle').textContent = game.shopName;
+  switch(pageId) {
+    case 'page-shop': renderShop(); renderMiniPhoneGuide(); break;
+    case 'page-bake': renderBake(); updateLabDropdowns(); break;
+    case 'page-market': renderMarket(); break;
+    case 'page-explore': renderExplore(); break;
+    case 'page-partners': renderStaffManagement(); break;
+    case 'page-decorate': renderDecorate(); break;
+    case 'page-inventory': renderInventory(); break;
+    case 'page-quest': renderQuest(); break;
+    case 'page-codex': renderCodex(); break;
+    case 'page-status': renderStatus(); break;
+  }
+}
+
+function renderShop() {
+  migrateGameData();
+  document.getElementById('dayDisplay').textContent = `第${game.day}天 · ${timeNames[game.timeOfDay]}`;
+  document.getElementById('weatherDisplay').textContent = weatherNames[game.weather];
+  document.getElementById('moneyDisplay').textContent = `${Math.floor(game.money)} 铜币`;
+  document.getElementById('shopStatus').textContent = game.shopOpen ? '营业中' : '已关门';
+  document.getElementById('shopStatus').className = 'status-badge ' + (game.shopOpen ? 'open' : 'closed');
+  document.getElementById('todaySales').textContent = `今日销售: ${game.todaySold}`;
+  document.getElementById('todayRevenue').textContent = `${game.todayRevenue} 铜币`;
+  document.getElementById('todayCost').textContent = `${game.todayCost} 铜币`;
+  document.getElementById('todayProfit').textContent = `${game.todayRevenue - game.todayCost} 铜币`;
+  document.getElementById('atmosphereDesc').textContent = `当前店铺氛围值：${game.atmosphere} 点（可通过装修购买各类氛围布置及升级桌椅提升）。`;
+  document.getElementById('activeEventDisplay').textContent = `当前随机事件/经营状态: ${game.currentEvent}`;
+
+  let queueHtml = '';
+  if (game.customers.length === 0) {
+    queueHtml = `<div style="font-size:11px;color:#9c8471;text-align:center;padding:8px;">当前暂无顾客进店，开门营业后将陆续有客流造访。</div>`;
+  } else {
+    for (let c of game.customers) {
+      if (c.state === 'ordering') {
+        const remSec = Math.max(0, Math.ceil(c.orderTimer));
+        queueHtml += `<div class="customer-card">
+          <div>
+            <span class="item-name">${c.name} 想吃: ${c.wantDish}</span>
+            <div class="item-desc" style="color:#d9534f;font-weight:600;">点单耐心: ${remSec}秒</div>
+          </div>
+          <button class="btn btn-primary btn-small" onclick="acceptCustomerOrder('${c.id}')">点击接单</button>
+        </div>`;
+      } else {
+        const remSec = Math.max(0, Math.ceil(c.foodTimer));
+        queueHtml += `<div class="customer-card" style="background:#e8f4e2;">
+          <div>
+            <span class="item-name">${c.name} 等待: ${c.wantDish}</span>
+            <div class="item-desc" style="color:#55784b;font-weight:600;">等餐中: ${remSec}秒</div>
+          </div>
+          <span style="font-size:11px;color:#55784b;font-weight:700;">制作中...</span>
+        </div>`;
+      }
+    }
+  }
+  document.getElementById('customerQueueContainer').innerHTML = queueHtml;
+
+  let stationsHtml = '';
+
+  let ovenSlotsHtml = '';
+  for (let i = 0; i < 3; i++) {
+    const slot = game.ovens[i];
+    if (slot && slot.finishedDish) {
+      const servedMsg = slot.servedBy ? `<br><span style="font-size:9px;color:#55784b;">${slot.servedBy}已自动上菜</span>` : '';
+      ovenSlotsHtml += `<div class="work-slot finished" onclick="serveDish('oven', ${i})"><b>${slot.finishedDish}</b><br><span style="font-size:10px;color:#4f6b43;font-weight:700;">点击上菜!</span>${servedMsg}</div>`;
+    } else if (slot && slot.baking) {
+      const rem = Math.max(0, Math.ceil((slot.endTime - Date.now()) / 1000));
+      ovenSlotsHtml += `<div class="work-slot working"><b>${slot.baking}</b><span class="slot-timer">${rem}秒</span></div>`;
+    } else {
+      ovenSlotsHtml += `<div class="work-slot">烘焙槽#${i+1}<br><span style="font-size:9px;color:#a36e31;">等待接单</span></div>`;
+    }
+  }
+  stationsHtml += `
+    <div class="station-box">
+      <div class="station-title"><span>烘焙区 (魔法烤箱)</span><span style="font-size:10px;color:#55784b;">已拥有 (3槽位)</span></div>
+      <div class="slot-row">${ovenSlotsHtml}</div>
+    </div>
+  `;
+
+  const barBought = isStationUnlocked('bar');
+  if (barBought) {
+    let barSlotsHtml = '';
+    for (let i = 0; i < 3; i++) {
+      const slot = game.bars[i];
+      if (slot && slot.finishedDish) {
+        const servedMsg = slot.servedBy ? `<br><span style="font-size:9px;color:#55784b;">${slot.servedBy}已自动上菜</span>` : '';
+        barSlotsHtml += `<div class="work-slot finished" onclick="serveDish('bar', ${i})"><b>${slot.finishedDish}</b><br><span style="font-size:10px;color:#4f6b43;font-weight:700;">点击上菜!</span>${servedMsg}</div>`;
+      } else if (slot && slot.baking) {
+        const rem = Math.max(0, Math.ceil((slot.endTime - Date.now()) / 1000));
+        barSlotsHtml += `<div class="work-slot working"><b>${slot.baking}</b><span class="slot-timer">${rem}秒</span></div>`;
+      } else {
+        barSlotsHtml += `<div class="work-slot">调配槽#${i+1}<br><span style="font-size:9px;color:#a36e31;">等待接单</span></div>`;
+      }
+    }
+    stationsHtml += `
+      <div class="station-box">
+        <div class="station-title"><span>饮品区 (精灵吧台)</span><span style="font-size:10px;color:#55784b;">已解锁 (3槽位)</span></div>
+        <div class="slot-row">${barSlotsHtml}</div>
+      </div>
+    `;
+  } else {
+    stationsHtml += `
+      <div class="station-box">
+        <div class="station-title"><span>饮品区 (精灵吧台)</span><span style="font-size:10px;color:#9b6255;">未解锁</span></div>
+        <div class="slot-row">
+          <div class="work-slot locked" onclick="showPage('page-decorate', document.querySelectorAll('.nav-item')[5])">未解锁<br><span style="font-size:9px;color:#a36e31;">去装修购买</span></div>
+          <div class="work-slot locked" onclick="showPage('page-decorate', document.querySelectorAll('.nav-item')[5])">未解锁<br><span style="font-size:9px;color:#a36e31;">去装修购买</span></div>
+          <div class="work-slot locked" onclick="showPage('page-decorate', document.querySelectorAll('.nav-item')[5])">未解锁<br><span style="font-size:9px;color:#a36e31;">去装修购买</span></div>
+        </div>
+      </div>
+    `;
+  }
+
+  const stoveBought = isStationUnlocked('stove');
+  if (stoveBought) {
+    let stoveSlotsHtml = '';
+    for (let i = 0; i < 3; i++) {
+      const slot = game.stoves[i];
+      if (slot && slot.finishedDish) {
+        const servedMsg = slot.servedBy ? `<br><span style="font-size:9px;color:#55784b;">${slot.servedBy}已自动上菜</span>` : '';
+        stoveSlotsHtml += `<div class="work-slot finished" onclick="serveDish('stove', ${i})"><b>${slot.finishedDish}</b><br><span style="font-size:10px;color:#4f6b43;font-weight:700;">点击上菜!</span>${servedMsg}</div>`;
+      } else if (slot && slot.baking) {
+        const rem = Math.max(0, Math.ceil((slot.endTime - Date.now()) / 1000));
+        stoveSlotsHtml += `<div class="work-slot working"><b>${slot.baking}</b><span class="slot-timer">${rem}秒</span></div>`;
+      } else {
+        stoveSlotsHtml += `<div class="work-slot">灶台槽#${i+1}<br><span style="font-size:9px;color:#a36e31;">等待接单</span></div>`;
+      }
+    }
+    stationsHtml += `
+      <div class="station-box">
+        <div class="station-title"><span>主食/烹饪区 (魔法灶台)</span><span style="font-size:10px;color:#55784b;">已解锁 (3槽位)</span></div>
+        <div class="slot-row">${stoveSlotsHtml}</div>
+      </div>
+    `;
+  } else {
+    stationsHtml += `
+      <div class="station-box">
+        <div class="station-title"><span>主食/烹饪区 (魔法灶台)</span><span style="font-size:10px;color:#9b6255;">未解锁</span></div>
+        <div class="slot-row">
+          <div class="work-slot locked" onclick="showPage('page-decorate', document.querySelectorAll('.nav-item')[5])">未解锁<br><span style="font-size:9px;color:#a36e31;">去装修购买</span></div>
+          <div class="work-slot locked" onclick="showPage('page-decorate', document.querySelectorAll('.nav-item')[5])">未解锁<br><span style="font-size:9px;color:#a36e31;">去装修购买</span></div>
+          <div class="work-slot locked" onclick="showPage('page-decorate', document.querySelectorAll('.nav-item')[5])">未解锁<br><span style="font-size:9px;color:#a36e31;">去装修购买</span></div>
+        </div>
+      </div>
+    `;
+  }
+
+  const container = document.getElementById('homeStationsContainer');
+  if (container) container.innerHTML = stationsHtml;
+}
+
+function drawWater() {
+  if (game.waterTodayCount >= 10) {
+    showToast('今日打水次数已用完（10/10次），请明天再来。');
+    return;
+  }
+  game.waterTodayCount++;
+  game.inventory['水'] = (game.inventory['水'] || 0) + 5;
+  showToast(`从镇口水井提来了 5 份清凉的井水！今日已打水 ${game.waterTodayCount}/10 次`);
+  renderShop(); renderMiniPhoneGuide();
+  saveGame();
+}
+
+function renderBake() {
+  migrateGameData();
+  let wsHtml = '';
+  
+  wsHtml += `<div style="font-weight:600;font-size:12px;margin:8px 0 4px;color:#80572f;">魔法烤箱 (烘焙区 · 3槽位)</div>`;
+  for (let i = 0; i < 3; i++) {
+    const slot = game.ovens[i];
+    if (slot && slot.finishedDish) {
+      wsHtml += `<div class="list-item"><span class="item-name">烤箱 #${i+1} 已完成成品: ${slot.finishedDish}</span><button class="btn btn-success btn-small" onclick="serveDish('oven', ${i})">上菜</button></div>`;
+    } else if (slot && slot.baking) {
+      const rem = Math.max(0, Math.ceil((slot.endTime - Date.now()) / 1000));
+      wsHtml += `<div class="list-item"><span class="item-name">烤箱 #${i+1} 正在烘焙: ${slot.baking}</span><span class="item-price">${rem}秒</span><button class="btn btn-danger btn-small" onclick="recycleSlot('oven', ${i})">丢弃/回收</button></div>`;
+    } else {
+      wsHtml += `<div class="list-item"><span class="item-name" style="color:#bfa794;">空闲烤箱 #${i+1} (通过接待顾客自动排单)</span></div>`;
+    }
+  }
+
+  wsHtml += `<div style="font-weight:600;font-size:12px;margin:14px 0 4px;color:#80572f;">精灵吧台 (饮品区 · 3槽位)</div>`;
+  if (isStationUnlocked('bar')) {
+    for (let i = 0; i < 3; i++) {
+      const slot = game.bars[i];
+      if (slot && slot.finishedDish) {
+        wsHtml += `<div class="list-item"><span class="item-name">吧台槽 #${i+1} 已完成成品: ${slot.finishedDish}</span><button class="btn btn-success btn-small" onclick="serveDish('bar', ${i})">上菜</button></div>`;
+      } else if (slot && slot.baking) {
+        const rem = Math.max(0, Math.ceil((slot.endTime - Date.now()) / 1000));
+        wsHtml += `<div class="list-item"><span class="item-name">吧台槽 #${i+1} 正在调制: ${slot.baking}</span><span class="item-price">${rem}秒</span><button class="btn btn-danger btn-small" onclick="recycleSlot('bar', ${i})">丢弃/回收</button></div>`;
+      } else {
+        wsHtml += `<div class="list-item"><span class="item-name" style="color:#bfa794;">空闲吧台槽 #${i+1}</span></div>`;
+      }
+    }
+  } else {
+    wsHtml += `<div style="font-size:11px;color:#9b6255;margin:8px 0;padding:8px;background:#f8efdf;border-radius:8px;display:flex;justify-content:space-between;align-items:center;"><span>未解锁：请前往装修页面购买【精灵饮品吧台】(只需60铜币)</span><button class="btn btn-primary btn-small" onclick="showPage('page-decorate', document.querySelectorAll('.nav-item')[5])">去购买</button></div>`;
+  }
+
+  wsHtml += `<div style="font-weight:600;font-size:12px;margin:14px 0 4px;color:#80572f;">魔法灶台 (主食/烹饪区 · 3槽位)</div>`;
+  if (isStationUnlocked('stove')) {
+    for (let i = 0; i < 3; i++) {
+      const slot = game.stoves[i];
+      if (slot && slot.finishedDish) {
+        wsHtml += `<div class="list-item"><span class="item-name">灶台槽 #${i+1} 已完成成品: ${slot.finishedDish}</span><button class="btn btn-success btn-small" onclick="serveDish('stove', ${i})">上菜</button></div>`;
+      } else if (slot && slot.baking) {
+        const rem = Math.max(0, Math.ceil((slot.endTime - Date.now()) / 1000));
+        wsHtml += `<div class="list-item"><span class="item-name">灶台槽 #${i+1} 正在烹饪: ${slot.baking}</span><span class="item-price">${rem}秒</span><button class="btn btn-danger btn-small" onclick="recycleSlot('stove', ${i})">丢弃/回收</button></div>`;
+      } else {
+        wsHtml += `<div class="list-item"><span class="item-name" style="color:#bfa794;">空闲灶台槽 #${i+1}</span></div>`;
+      }
+    }
+  } else {
+    wsHtml += `<div style="font-size:11px;color:#9b6255;margin:8px 0;padding:8px;background:#f8efdf;border-radius:8px;display:flex;justify-content:space-between;align-items:center;"><span>未解锁：请前往装修页面购买【魔法主食灶台】(只需80铜币)</span><button class="btn btn-primary btn-small" onclick="showPage('page-decorate', document.querySelectorAll('.nav-item')[5])">去购买</button></div>`;
+  }
+
+  const wsElem = document.getElementById('workshopSlotsList');
+  if (wsElem) wsElem.innerHTML = wsHtml;
+
+  let recipeHtml = '';
+  const salesMult = getSalesMultiplier().priceMult;
+  for (const [name, r] of Object.entries(game.recipes)) {
+    if (r.unlocked) {
+      const finalP = Math.floor(r.sellPrice * salesMult);
+      recipeHtml += `<div class="list-item"><div><span class="item-name">[${r.category}] ${name}</span><div class="item-desc">区域:${r.station} | 耗时:${r.time}秒 | 基础售价:${r.sellPrice}铜 (当前生效售价:${finalP}铜)</div></div><span style="font-size:11px;color:#55784b;">已解锁食谱</span></div>`;
+    }
+  }
+  const recElem = document.getElementById('recipeList');
+  if (recElem) recElem.innerHTML = recipeHtml;
+}
+
+function recycleSlot(stationType, i) {
+  let arr = stationType === 'oven' ? game.ovens : stationType === 'bar' ? game.bars : game.stoves;
+  const slot = arr[i];
+  if (slot.finishedDish) {
+    const dishPrice = game.recipes[slot.finishedDish] ? game.recipes[slot.finishedDish].sellPrice : 20;
+    const halfPrice = Math.floor(dishPrice / 2);
+    game.money += halfPrice;
+    game.todayRevenue += halfPrice;
+    showToast(`已将残留成品【${slot.finishedDish}】以半价 ${halfPrice} 铜币回收，槽位已清空！`);
+  } else {
+    showToast('已强制中止并清空当前制作槽位。');
+  }
+  arr[i] = { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null };
+  renderBake();
+  renderShop(); renderMiniPhoneGuide();
+  saveGame();
+}
+
+function serveDish(stationType, i) {
+  let arr = stationType === 'oven' ? game.ovens : stationType === 'bar' ? game.bars : game.stoves;
+  const slot = arr[i];
+  if (!slot.finishedDish) return;
+
+  const dishName = slot.finishedDish;
+  const custId = slot.assignedCustomerId;
+  const basePrice = game.recipes[dishName] ? game.recipes[dishName].sellPrice : 25;
+  const salesMult = getSalesMultiplier().priceMult;
+  const finalPrice = Math.floor(basePrice * salesMult);
+
+  game.money += finalPrice;
+  game.todayRevenue += finalPrice;
+  game.todaySold++;
+  game.totalSold++;
+
+  showToast(`上菜成功！招待客热乎出炉，获得营收 ${finalPrice} 铜币（含销售加成）！`);
+
+  if (custId) {
+    game.customers = game.customers.filter(c => c.id !== custId);
+  }
+
+  arr[i] = { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null };
+  renderShop(); renderMiniPhoneGuide();
+  renderBake();
+  saveGame();
+}
+
+// ==================== V23: STRICT SEPARATION STAFF MANAGEMENT ====================
+function switchStaffTab(tabKey) {
+  currentStaffTabKey = tabKey;
+  const container = document.getElementById('staffTabs');
+  if (container) {
+    container.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    event.currentTarget.classList.add('active');
+  }
+  renderStaffManagement();
+}
+
+function renderStaffManagement() {
+  migrateGameData();
+  let html = '';
+
+  for (const [id, s] of Object.entries(game.staff)) {
+    // STRICT TAB LOGIC: Ensure zero cross-category bleeding
+    if (currentStaffTabKey === 'chef' && s.subType !== 'chef') continue;
+    if (currentStaffTabKey === 'sales' && s.subType !== 'sales') continue;
+    if (currentStaffTabKey === 'expedition' && s.subType !== 'expedition') continue;
+
+    let actionBtn = '';
+    if (!s.hired) {
+      actionBtn = `<button class="btn btn-primary btn-small" onclick="hireStaff('${id}')">雇佣 (${s.cost}铜)</button>`;
+    } else {
+      if (s.type === 'in_store') {
+        actionBtn = s.assigned 
+          ? `<button class="btn btn-danger btn-small" onclick="toggleAssignStaff('${id}')">撤回休息</button>` 
+          : `<button class="btn btn-success btn-small" onclick="toggleAssignStaff('${id}')">派驻店内</button>`;
+      } else {
+        actionBtn = `<span style="color:#55784b;font-size:11px;font-weight:600;">外派采集专员</span>`;
+      }
+    }
+
+    const tagText = s.type === 'in_store' ? '🏠 店内帮工' : '⛰️ 外派远征';
+    const subTagText = s.subType === 'chef' ? '🧑‍🍳 厨师/帮厨' : s.subType === 'sales' ? '💬 销售/接待' : '🔍 采集专员';
+    const statusColor = s.status === '偷懒中' ? '#d9534f' : s.status === '干活中' ? '#55784b' : '#9c8471';
+
+    html += `<div class="partner-card">
+      <div class="partner-top">
+        <div class="partner-avatar">${s.avatar}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
+            <span class="item-name">${s.name} <span style="font-size:11px;color:#a36e31;font-weight:700;">[${s.role}]</span></span>
+            <div style="display:flex;gap:4px;">
+              <span style="font-size:9px;background:#f8efdf;padding:2px 6px;border-radius:99px;color:#80572f;border:1px solid #e8d8c2;">${tagText}</span>
+              <span style="font-size:9px;background:#e9ae5e22;padding:2px 6px;border-radius:99px;color:#805b32;border:1px solid #ead4b4;">${subTagText}</span>
+            </div>
+          </div>
+          <div class="item-desc" style="margin-top:2px;">${s.desc}</div>
+          <div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap;">${[s.skill, s.skill2, s.skill3].filter(x => x && x.label).map(x => `<span style="font-size:9px;background:#e3eedb;color:#4f6b43;padding:2px 6px;border-radius:99px;border:1px solid #c6d8b8;">✦ ${x.label}</span>`).join('')}</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:4px;gap:8px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:140px;font-size:11px;color:#9c8471;">
+          状态: <span style="color:${statusColor};font-weight:700;">${s.status}</span> | 每日薪水: ${s.wage}铜 | 忠诚度: ${s.loyalty}点<br>
+          疲劳值: ${Math.floor(s.fatigue)}%
+          <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100, s.fatigue)}%;background:${s.fatigue >= 80 ? '#d9534f' : '#a8c89e'};"></div></div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          ${s.hired ? `<button class="btn btn-small" style="background:#fff2dd;border-color:#e8d8c2;font-size:10px;" onclick="feedStaffModal('${id}')">赠送员工餐</button>` : ''}
+          ${actionBtn}
+        </div>
+      </div>
+    </div>`;
+  }
+  document.getElementById('partnerManagementList').innerHTML = html || '<div style="font-size:12px;color:#9c8471;text-align:center;padding:12px;">当前标签分类下暂无员工。</div>';
+  const hint = document.getElementById('staffCountHint');
+  if (hint) hint.textContent = Object.keys(game.staff).length;
+
+  let rHtml = '';
+  for (const [id, r] of Object.entries(game.residents)) {
+    rHtml += `<div class="partner-card" style="flex-direction:row;align-items:center;"><div class="partner-avatar">${r.avatar}</div><div style="flex:1;"><div class="item-name">${r.name}</div><div class="item-desc">喜好: ${r.likes} | 好感度: ${r.favor}/100</div></div>${r.met ? `<button class="btn btn-success btn-small" onclick="giftResident('${id}')">赠送料理</button>` : '<span style="font-size:11px;color:#9c8471;">尚未结识</span>'}</div>`;
+  }
+  document.getElementById('residentList').innerHTML = rHtml;
+}
+
+function hireStaff(id) {
+  const s = game.staff[id];
+  if (game.money >= s.cost) {
+    game.money -= s.cost;
+    s.hired = true;
+    if (game.characters[id]) {
+      game.characters[id].isHired = true;
+    }
+    showToast(`成功雇佣员工: ${s.name} (${s.role})！`);
+    renderStaffManagement();
+    saveGame();
+  } else {
+    showToast('铜币不足！');
+  }
+}
+
+function toggleAssignStaff(id) {
+  const s = game.staff[id];
+  if (!s.hired) return;
+
+  s.assigned = !s.assigned;
+  s.status = s.assigned ? '干活中' : '空闲';
+  showToast(`${s.name} 已${s.assigned ? '派驻到店内开始工作' : '撤回休息'}`);
+  renderStaffManagement();
+  saveGame();
+}
+
+function feedStaffModal(id) {
+  const s = game.staff[id];
+  let options = '';
+  for (const [name, r] of Object.entries(game.recipes)) {
+    const qty = game.inventory[name] || 0;
+    if (r.unlocked && qty > 0) {
+      options += `<button class="btn btn-primary btn-small" style="margin:4px;" onclick="feedStaffAction('${id}', '${name}')">赠送 ${name} (拥有:${qty})</button>`;
+    }
+  }
+  if (!options) {
+    options = `<div style="font-size:12px;color:#9c8471;padding:10px;">背包中暂无做好的成品料理可作为员工餐。</div>`;
+  }
+  document.getElementById('modalBody').innerHTML = `<span class="modal-close" onclick="closeModal()">×</span><h2 class="modal-heading">慰劳员工: ${s.name}</h2><p class="modal-copy">向员工赠送美味料理可清空疲劳值并大幅提升忠诚度：</p><div style="margin-top:12px;">${options}</div>`;
+  document.getElementById('modal').classList.add('show');
+}
+
+function feedStaffAction(staffId, dishName) {
+  closeModal();
+  const s = game.staff[staffId];
+  if ((game.inventory[dishName] || 0) > 0) {
+    game.inventory[dishName]--;
+    s.fatigue = 0;
+    s.loyalty = Math.min(100, s.loyalty + 15);
+    s.status = s.assigned ? '干活中' : '空闲';
+    showToast(`成功向 ${s.name} 赠送了 ${dishName}！疲劳值已清空，忠诚度提升至 ${s.loyalty}点！`);
+    renderStaffManagement();
+    saveGame();
+  } else {
+    showToast('料理不足！');
+  }
+}
+
+// ==================== MARKET, EXPLORE, DECORATE & OTHERS ====================
+function switchMarketTab(tabKey) {
+  currentMarketTab = tabKey;
+  document.querySelectorAll('#marketTabs .tab-btn').forEach(btn => btn.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  renderMarketItems();
+}
+
+function renderMarket() {
+  renderMarketItems();
+
+  let sellHtml = '';
+  const salesMult = getSalesMultiplier().priceMult;
+  for (const [name, r] of Object.entries(game.recipes)) {
+    const count = game.inventory[name] || 0;
+    if (r.unlocked && count > 0) {
+      const finalP = Math.floor(r.sellPrice * salesMult);
+      sellHtml += `<div class="list-item"><div><span class="item-name">${name}</span><div class="item-desc">持有: ${count}个</div></div><div style="display:flex;gap:6px;align-items:center;"><span class="item-price">${finalP}铜/个</span><button class="btn btn-success btn-small" onclick="sellProduct('${name}', 1)">卖1个</button></div></div>`;
+    }
+  }
+  document.getElementById('sellList').innerHTML = sellHtml || '<div style="font-size:12px;color:#9c8471;text-align:center;padding:10px;">暂无做好的餐饮成品可供出售</div>';
+}
+
+function renderMarketItems() {
+  const cat = marketCategories[currentMarketTab];
+  let buyHtml = '';
+  for (const [item, price] of Object.entries(cat.items)) {
+    let descText = `仓库持有: ${game.inventory[item] || 0}`;
+    if (currentMarketTab === 'atmosphere' && atmosphereItemsEffect[item]) {
+      descText = `${atmosphereItemsEffect[item].desc} | 仓库持有: ${game.inventory[item] || 0}`;
+    }
+    buyHtml += `<div class="list-item"><div><span class="item-name">${item}</span><div class="item-desc">${descText}</div></div><div style="display:flex;gap:6px;align-items:center;"><span class="item-price">${price}铜</span><button class="btn btn-primary btn-small" onclick="buyItem('${item}', 1)">购买</button></div></div>`;
+  }
+  document.getElementById('marketItemList').innerHTML = buyHtml;
+}
+
+function buyItem(item, qty) {
+  const cost = (marketPrices[item] || 5) * qty;
+  if (game.money >= cost) {
+    game.money -= cost;
+    game.inventory[item] = (game.inventory[item] || 0) + qty;
+    
+    if (atmosphereItemsEffect[item]) {
+      const addedAtmosphere = atmosphereItemsEffect[item].val * qty;
+      game.atmosphere += addedAtmosphere;
+      showToast(`成功购买 ${item}！餐厅氛围值 +${addedAtmosphere}`);
+    } else {
+      showToast(`成功购买 ${item} ×${qty}`);
+    }
+
+    renderMarket();
+    renderShop(); renderMiniPhoneGuide();
+    updateLabDropdowns();
+    saveGame();
+  } else {
+    showToast('铜币不足！');
+  }
+}
+
+function sellProduct(name, qty) {
+  if ((game.inventory[name] || 0) >= qty) {
+    game.inventory[name] -= qty;
+    const salesMult = getSalesMultiplier().priceMult;
+    const price = Math.floor(game.recipes[name].sellPrice * salesMult) * qty;
+    game.money += price;
+    game.todayRevenue += price;
+    game.todaySold += qty;
+    game.totalSold += qty;
+    showToast(`售出 ${name} ×${qty}，获得 ${price} 铜币`);
+    renderMarket();
+    saveGame();
+  }
+}
+
+function quickSell() {
+  let soldTotal = 0, earnedTotal = 0;
+  const salesMult = getSalesMultiplier().priceMult;
+  for (const [name, r] of Object.entries(game.recipes)) {
+    const count = game.inventory[name] || 0;
+    if (r.unlocked && count > 0) {
+      game.inventory[name] = 0;
+      const unitP = Math.floor(r.sellPrice * salesMult);
+      const earn = count * unitP;
+      earnedTotal += earn;
+      soldTotal += count;
+      game.todayRevenue += earn;
+      game.todaySold += count;
+      game.totalSold += count;
+    }
+  }
+  if (soldTotal > 0) {
+    game.money += earnedTotal;
+    showToast(`一键售出 ${soldTotal} 份商品，总收入 ${earnedTotal} 铜币`);
+    renderShop(); renderMiniPhoneGuide();
+    saveGame();
+  } else {
+    showToast('没有可上架出售的餐饮成品');
+  }
+}
+
+function renderExplore() {
+  migrateGameData();
+  
+  let setupHtml = `<div style="font-size:12px;margin-bottom:8px;font-weight:600;color:#594538;">手动勾选本次远征队员（每次至少需选择 2 名可用角色）：</div>`;
+  setupHtml += `<div style="display:flex;flex-direction:column;gap:6px;">`;
+
+  for (const [charId, c] of Object.entries(game.characters)) {
+    if (!c.isHired) continue;
+
+    const isBusy = c.expeditionId !== null;
+    const isExhausted = c.todayCount >= 5;
+    const disabled = isBusy || isExhausted;
+    const isChecked = selectedExpTeamIds.includes(charId) && !disabled;
+
+    let statusText = '空闲';
+    if (isBusy) statusText = '远征中';
+    else if (isExhausted) statusText = '今日次数已用完';
+
+    setupHtml += `<label style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:4px 8px;background:${disabled ? '#eee' : '#fff'};border-radius:6px;border:1px solid #e8d8c2;cursor:${disabled ? 'not-allowed' : 'pointer'}">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <input type="checkbox" value="${charId}" ${isChecked ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="toggleExploreMember(this, '${charId}')" />
+        <b>${c.name}</b>
+      </div>
+      <div style="display:flex;gap:10px;font-size:11px;color:#9c8471;">
+        <span>今日已用: ${c.todayCount}/5次</span>
+        <span style="color:${isBusy || isExhausted ? '#d9534f' : '#55784b'}; font-weight:600;">${statusText}</span>
+      </div>
+    </label>`;
+  }
+  setupHtml += `</div>`;
+  document.getElementById('exploreTeamSetup').innerHTML = setupHtml;
+
+  let areaHtml = '';
+  for (const [name, area] of Object.entries(areas)) {
+    areaHtml += `<div class="list-item">
+      <div><span class="item-name">${name}</span><div class="item-desc">${area.desc} | 耗时:${area.time}秒</div></div>
+      <button class="btn btn-primary btn-small" onclick="startSelectedExplore('${name}')">以此阵容出征</button>
+    </div>`;
+  }
+  document.getElementById('areaList').innerHTML = areaHtml;
+
+  let activeHtml = '';
+  if (game.expeditions.length === 0) {
+    activeHtml = `<div style="font-size:12px;color:#9c8471;text-align:center;padding:10px;">当前没有队伍在野外探索</div>`;
+  } else {
+    for (const exp of game.expeditions) {
+      const rem = Math.max(0, Math.ceil((exp.endTime - Date.now()) / 1000));
+      const teamNames = exp.team.map(id => game.characters[id] ? game.characters[id].name : id).join('、');
+      const isFinished = rem <= 0;
+      
+      activeHtml += `<div class="list-item" style="background:#fff2dd;padding:8px;border-radius:8px;margin-bottom:6px;">
+        <div>
+          <span class="item-name">${exp.area} 远征队</span>
+          <div class="item-desc">成员: ${teamNames}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="item-price">${isFinished ? '任务完成可领取!' : `剩余 ${rem}秒`}</span>
+          ${isFinished && !exp.claimed ? `<button class="btn btn-success btn-small" onclick="claimExpedition('${exp.id}')">领取奖励</button>` : `<span style="font-size:11px;color:#9c8471;">进行中</span>`}
+        </div>
+      </div>`;
+    }
+  }
+  document.getElementById('activeExpeditionsList').innerHTML = activeHtml;
+}
+
+function toggleExploreMember(checkbox, charId) {
+  if (checkbox.checked) {
+    if (!selectedExpTeamIds.includes(charId)) {
+      selectedExpTeamIds.push(charId);
+    }
+  } else {
+    selectedExpTeamIds = selectedExpTeamIds.filter(id => id !== charId);
+  }
+}
+
+function startSelectedExplore(areaName) {
+  migrateGameData();
+  let validTeam = selectedExpTeamIds.filter(id => {
+    const c = game.characters[id];
+    return c && c.isHired && c.expeditionId === null && c.todayCount < 5;
+  });
+
+  if (validTeam.length < 2) {
+    showToast('每次远征至少需要勾选两名可用队员！');
+    return;
+  }
+
+  const area = areas[areaName];
+  
+  let timeMultiplier = 1.0;
+  let hasDouble = false;
+  // 遍历入选队员：expedition_speed 取最小耗时倍率(越小越快)，expedition_double 触发双倍掉落
+  for (let id of validTeam) {
+    const stf = game.staff[id];
+    if (!stf || !stf.hired) continue;
+    [stf.skill, stf.skill2, stf.skill3].forEach(sk => {
+      if (!sk || !sk.type) return;
+      if (sk.type === 'expedition_speed' && (sk.target === 'all' || sk.target === areaName)) {
+        timeMultiplier = Math.min(timeMultiplier, sk.value);
+      }
+      if (sk.type === 'expedition_double') hasDouble = true;
+    });
+  }
+  // 兜底：旧版雷恩写死 -50%
+  if (validTeam.includes('资深采集长雷恩') && game.staff['资深采集长雷恩'] && game.staff['资深采集长雷恩'].hired) {
+    timeMultiplier = Math.min(timeMultiplier, 0.5);
+    hasDouble = true;
+  }
+
+  const expeditionId = 'exp_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+  const endTime = Date.now() + Math.floor(area.time * timeMultiplier) * 1000;
+
+  for (let id of validTeam) {
+    game.characters[id].expeditionId = expeditionId;
+    game.characters[id].todayCount++;
+  }
+
+  game.expeditions.push({
+    id: expeditionId,
+    area: areaName,
+    endTime: endTime,
+    team: validTeam,
+    claimed: false,
+    doubleLoot: hasDouble
+  });
+
+  showToast(`远征小队成功出发前往 ${areaName}！`);
+  renderExplore();
+  saveGame();
+}
+
+function claimExpedition(expId) {
+  const exp = game.expeditions.find(e => e.id === expId);
+  if (!exp || exp.claimed) return;
+
+  exp.claimed = true;
+  const area = areas[exp.area];
+  
+  let lootMultiplier = exp.doubleLoot ? 2 : 1;
+
+  const lootCount = exp.team.length * (Math.floor(Math.random() * 2) + area.tier + 1) * lootMultiplier;
+  let earnedSummary = {};
+
+  for (let k = 0; k < lootCount; k++) {
+    const rewardItem = area.items[Math.floor(Math.random() * area.items.length)];
+    game.inventory[rewardItem] = (game.inventory[rewardItem] || 0) + 1;
+    earnedSummary[rewardItem] = (earnedSummary[rewardItem] || 0) + 1;
+  }
+
+  for (let id of exp.team) {
+    if (game.characters[id]) {
+      game.characters[id].expeditionId = null;
+    }
+  }
+
+  game.expeditions = game.expeditions.filter(e => e.id !== expId);
+
+  let summaryStr = Object.entries(earnedSummary).map(([k,v]) => `${k}×${v}`).join('、');
+  showToast(`远征凯旋！获得丰厚秘境物资：${summaryStr}`);
+  renderExplore();
+  updateLabDropdowns();
+  saveGame();
+}
+
+function giftResident(id) {
+  const r = game.residents[id];
+  const item = r.likes;
+  if ((game.inventory[item] || 0) > 0) {
+    game.inventory[item]--;
+    r.favor = Math.min(100, r.favor + 20);
+    showToast(`向 ${r.name} 赠送了 ${item}，好感度+20！`);
+    if (r.favor >= 50 && id === '精灵魔法师') {
+      game.recipes['月光莓果塔'].unlocked = true;
+      game.codex['月光莓果塔'].discovered = true;
+      showToast('触发羁绊！解锁了新食谱：月光莓果塔！');
+    }
+    renderStaffManagement();
+    saveGame();
+  } else {
+    showToast(`背包中没有 ${item}，无法赠送！`);
+  }
+}
+
+function renderDecorate() {
+  migrateGameData();
+  let html = '';
+  for (const [id, d] of Object.entries(game.decorations)) {
+    let actionBtn = '';
+    if (!d.bought) {
+      actionBtn = `<button class="btn btn-primary btn-small" onclick="buyDecorate('${id}')">购买解锁 (${d.cost}铜)</button>`;
+    } else if (d.level < d.maxLevel) {
+      const upgradeCost = d.cost * d.level;
+      actionBtn = `<button class="btn btn-success btn-small" onclick="upgradeDecorate('${id}')">升至Lv.${d.level+1} (${upgradeCost}铜)</button>`;
+    } else {
+      actionBtn = `<span style="color:#55784b;font-size:12px;font-weight:650;">已满级 (Lv.${d.maxLevel})</span>`;
+    }
+
+    html += `<div class="list-item">
+      <div>
+        <span class="item-name">${d.name} ${d.bought ? `(当前 Lv.${d.level})` : ''}</span>
+        <div class="item-desc">效果: ${d.effect}</div>
+      </div>
+      <div>${actionBtn}</div>
+    </div>`;
+  }
+  const decElem = document.getElementById('decorateList');
+  if (decElem) decElem.innerHTML = html;
+}
+
+function buyDecorate(id) {
+  const d = game.decorations[id];
+  if (game.money >= d.cost) {
+    game.money -= d.cost;
+    d.bought = true;
+    d.level = 1;
+    game.atmosphere += 20;
+    showToast(`成功购买/解锁: ${d.name}！餐厅氛围值提升！`);
+    renderDecorate();
+    renderShop(); renderMiniPhoneGuide();
+    saveGame();
+  } else {
+    showToast('铜币不足！');
+  }
+}
+
+function upgradeDecorate(id) {
+  const d = game.decorations[id];
+  const upgradeCost = d.cost * d.level;
+  if (game.money >= upgradeCost) {
+    game.money -= upgradeCost;
+    d.level++;
+    game.atmosphere += 25 * d.level;
+    showToast(`成功将 ${d.name} 升级至 Lv.${d.level}！被动加成与餐厅氛围大幅提升！`);
+    renderDecorate();
+    renderShop(); renderMiniPhoneGuide();
+    saveGame();
+  } else {
+    showToast(`升级所需铜币不足（需要 ${upgradeCost} 铜币）！`);
+  }
+}
+
+function renderInventory() {
+  let html = '';
+  for (const [item, qty] of Object.entries(game.inventory)) {
+    html += `<div class="list-item"><span class="item-name">${item}</span><span class="item-price">× ${qty}</span></div>`;
+  }
+  document.getElementById('inventoryList').innerHTML = html;
+}
+
+function renderQuest() {
+  let html = '';
+  for (const [id, q] of Object.entries(game.quests)) {
+    const currentCount = game.inventory[q.item] || 0;
+    const progressText = `${Math.min(q.target, currentCount)} / ${q.target}`;
+    html += `<div class="list-item"><div><span class="item-name">${id}</span><div class="item-desc">${q.desc} | 奖励: ${q.reward}铜</div><div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100, (currentCount/q.target)*100)}%"></div></div></div>${q.done ? '<span style="color:#55784b;font-size:12px;">已完成</span>' : `<button class="btn btn-success btn-small" onclick="claimQuest('${id}')">提交 (${progressText})</button>`}</div>`;
+  }
+  document.getElementById('questList').innerHTML = html;
+}
+
+function claimQuest(id) {
+  const q = game.quests[id];
+  const count = game.inventory[q.item] || 0;
+  if (count >= q.target && !q.done) {
+    game.inventory[q.item] -= q.target;
+    q.done = true;
+    game.money += q.reward; 
+    showToast(`委托【${id}】完成！获得奖励 ${q.reward} 铜币`);
+    renderQuest();
+    renderShop(); renderMiniPhoneGuide();
+    saveGame();
+  } else {
+    showToast(`材料不足，集齐 ${q.target} 个 ${q.item} 即可提交`);
+  }
+}
+
+function renderCodex() {
+  let html = '';
+  for (const [name, c] of Object.entries(game.codex)) {
+    html += `<div class="list-item"><div><span class="item-name">${c.discovered ? name : '???'}</span><div class="item-desc">${c.discovered ? c.desc : '通过灵光一闪研发解锁'}</div></div></div>`;
+  }
+  document.getElementById('codexList').innerHTML = html;
+}
+
+function renderStatus() {
+  document.getElementById('statusData').innerHTML = `
+    <div class="list-item"><span class="item-name">店铺名称</span><span class="item-price">${game.shopName}</span></div>
+    <div class="list-item"><span class="item-name">经营天数</span><span class="item-price">第 ${game.day} 天</span></div>
+    <div class="list-item"><span class="item-name">餐厅氛围值</span><span class="item-price">${game.atmosphere} 点</span></div>
+    <div class="list-item"><span class="item-name">累计制作</span><span class="item-price">${game.totalBaked} 份</span></div>
+    <div class="list-item"><span class="item-name">累计售出</span><span class="item-price">${game.totalSold} 份</span></div>
+    <div class="list-item"><span class="item-name">当前资产</span><span class="item-price">${Math.floor(game.money)} 铜币</span></div>
+  `;
+
+  let achHtml = '';
+  for (const [name, a] of Object.entries(game.achievements)) {
+    achHtml += `<div class="list-item"><span class="item-name">${a.done ? '已完成' : '未完成'} ${name}</span><div class="item-desc">${a.desc}</div></div>`;
+  }
+  document.getElementById('achievementList').innerHTML = achHtml;
+}
+
+// ==================== SETTINGS & SAVE / EXPORT / IMPORT (EXACT USER REQUEST) ====================
+function openSettings() {
+  const lastSaveTimeStr = new Date(game.lastSave || Date.now()).toLocaleString();
+  document.getElementById('modalBody').innerHTML = `
+    <span class="modal-close" onclick="closeModal()">×</span>
+    <h2 class="modal-heading">设置与存档管理中心</h2>
+    <p class="modal-copy">管理你的游戏存档进度、切换存档槽位，或存入/读取/导出/导入存档文件进行数据备份。</p>
+    
+    <div class="modal-section" style="margin-top:8px;">
+      <b>当前存档状态预览:</b>
+      <div style="font-size:11px;color:#80572f;margin-top:6px;background:#fff5e3;padding:8px;border-radius:8px;border:1px solid #e8d8c2;">
+        当前选中: <b>${currentSlot === 'slot1' ? '存档一' : currentSlot === 'slot2' ? '存档二' : '存档三'}</b> | 店铺: <b>${game.shopName}</b><br>
+        经营天数: <b>第${game.day}天 (${timeNames[game.timeOfDay]})</b> | 铜币: <b>${Math.floor(game.money)}</b><br>
+        最后存档时间: <b>${lastSaveTimeStr}</b>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <b>当前店铺名称修改:</b>
+      <div style="display:flex;gap:8px;margin-top:6px;">
+        <input type="text" id="renameInput" value="${game.shopName}" style="flex:1;padding:8px;border-radius:8px;border:1px solid #e8d8c2;background:#fffaf0;font-size:12px;" />
+        <button class="btn btn-primary btn-small" onclick="saveShopName()">修改名称</button>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <b>存档一、存档二、存档三（手动存入与读取数据）：</b>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;background:#fff5e3;padding:8px 10px;border-radius:10px;border:1px solid #e8d8c2;">
+          <span style="font-weight:600;font-size:12px;color:#80572f;">存档一 ${currentSlot==='slot1'?'(当前选中)':''}</span>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-primary btn-small" onclick="slotActionStore('slot1')">存入</button>
+            <button class="btn btn-success btn-small" onclick="slotActionRead('slot1')">读取</button>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;background:#fff5e3;padding:8px 10px;border-radius:10px;border:1px solid #e8d8c2;">
+          <span style="font-weight:600;font-size:12px;color:#80572f;">存档二 ${currentSlot==='slot2'?'(当前选中)':''}</span>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-primary btn-small" onclick="slotActionStore('slot2')">存入</button>
+            <button class="btn btn-success btn-small" onclick="slotActionRead('slot2')">读取</button>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;background:#fff5e3;padding:8px 10px;border-radius:10px;border:1px solid #e8d8c2;">
+          <span style="font-weight:600;font-size:12px;color:#80572f;">存档三 ${currentSlot==='slot3'?'(当前选中)':''}</span>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-primary btn-small" onclick="slotActionStore('slot3')">存入</button>
+            <button class="btn btn-success btn-small" onclick="slotActionRead('slot3')">读取</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <b>存档文件导入与导出 (JSON备份):</b>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-small" onclick="exportSaveJSON()">📥 导出存档文件 (.json)</button>
+        <label class="btn btn-success btn-small" style="cursor:pointer;margin:0;display:inline-flex;align-items:center;">
+          📤 导入存档文件 <input type="file" id="importFile" accept=".json" style="display:none;" onchange="importSaveJSON(event)">
+        </label>
+      </div>
+    </div>
+
+    <div class="modal-section" style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-danger btn-small" onclick="resetGameSlot()">重置当前存档</button>
+    </div>
+  `;
+  document.getElementById('modal').classList.add('show');
+}
+
+function slotActionStore(slotKey) {
+  currentSlot = slotKey;
+  // 把当前店铺名作为快照绑定到这个存档槽，读取时只认它自己保存的名字
+  try { localStorage.setItem('fantasyRestaurant_' + slotKey + '_name', game.shopName); } catch(e) {}
+  saveGame();
+  showToast(`已成功将当前游戏进度【存入】到 ${slotKey === 'slot1' ? '存档一' : slotKey === 'slot2' ? '存档二' : '存档三'}！`);
+  openSettings(); // refresh modal preview
+}
+
+function slotActionRead(slotKey) {
+  currentSlot = slotKey;
+  loadGame();
+  showToast(`已成功【读取】${slotKey === 'slot1' ? '存档一' : slotKey === 'slot2' ? '存档二' : '存档三'} 的数据！`);
+  closeModal();
+  renderPage(document.querySelector('.page.active').id);
+}
+
+function saveShopName() {
+  const val = document.getElementById('renameInput').value.trim();
+  if (val) {
+    game.shopName = val;
+    showToast(`店铺名称已更改为: ${val}`);
+    renderPage(document.querySelector('.page.active').id);
+    saveGame();
+    closeModal();
+  }
+}
+
+function manualSave() {
+  saveGame();
+  showToast('当前游戏进度已成功手动保存！');
+  openSettings();
+}
+
+function manualNextDay() {
+  if (confirm('确定要手动进入下一天吗？（将扣除员工每日薪水并重置打水次数）')) {
+    executeNextDayTransition();
+  }
+}
+
+function executeNextDayTransition() {
+  game.day++;
+  game.timeOfDay = 0;
+  game.waterTodayCount = 0;
+  game.customers = [];
+
+  let totalWage = 0;
+  for (let sId in game.staff) {
+    const s = game.staff[sId];
+    if (s.hired) {
+      totalWage += s.wage;
+      if (s.assigned) {
+        s.fatigue = Math.min(100, s.fatigue + 15);
+        if (s.fatigue >= 100) {
+          s.status = '偷懒中';
+        }
+      }
+    }
+  }
+
+  let wagePaid = false;
+  if (game.money >= totalWage) {
+    game.money -= totalWage;
+    game.todayCost += totalWage;
+    wagePaid = true;
+  } else {
+    for (let sId in game.staff) {
+      game.staff[sId].status = '偷懒中';
+    }
+  }
+
+  showToast(`☀️ 已经手动进入第 ${game.day} 天早晨！已自动扣除员工薪水 ${totalWage} 铜币。`);
+  renderShop(); renderMiniPhoneGuide();
+  saveGame();
+}
+
+function closeShopAndSettle() {
+  game.shopOpen = false;
+  game.customers = [];
+  
+  let totalWage = 0;
+  for (let sId in game.staff) {
+    const s = game.staff[sId];
+    if (s.hired) {
+      totalWage += s.wage;
+      if (s.assigned) {
+        s.fatigue = Math.min(100, s.fatigue + 20);
+        if (s.fatigue >= 100) {
+          s.status = '偷懒中';
+        }
+      }
+    }
+  }
+  
+  let wagePaid = false;
+  if (game.money >= totalWage) {
+    game.money -= totalWage;
+    game.todayCost += totalWage;
+    wagePaid = true;
+  } else {
+    for (let sId in game.staff) {
+      game.staff[sId].status = '偷懒中';
+    }
+  }
+  
+  const rev = game.todayRevenue;
+  const cost = game.todayCost;
+  const profit = rev - cost;
+  
+  const todayRevStored = game.todayRevenue;
+  const todayCostStored = game.todayCost;
+  
+  game.waterTodayCount = 0;
+  game.todayRevenue = 0;
+  game.todayCost = 0;
+  game.todaySold = 0;
+  game.day++;
+  game.timeOfDay = 0;
+  
+  document.getElementById('modalBody').innerHTML = `
+    <span class="modal-close" onclick="closeModal(); renderShop(); renderMiniPhoneGuide();">×</span>
+    <h2 class="modal-heading">🌙 营业打烊结算报表</h2>
+    <p class="modal-copy">第 ${game.day - 1} 天营业圆满结束，今日店铺各项经营收支统计如下：</p>
+    <div class="modal-section" style="margin-top:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px;"><span style="color:#9c8471;">今日总营业额:</span><b style="color:#805b32;">${todayRevStored} 铜币</b></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px;"><span style="color:#9c8471;">今日总支出/成本:</span><b style="color:#d9534f;">${todayCostStored} 铜币</b></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px;"><span style="color:#9c8471;">今日净利润:</span><b style="color:${profit>=0?'#55784b':'#d9534f'};">${profit} 铜币</b></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:#9c8471;">员工薪水扣除:</span><b>${wagePaid ? totalWage + ' 铜币 (已扣除)' : '铜币不足，全员罢工抗议中！'}</b></div>
+    </div>
+    <div class="modal-section">
+      <b>员工疲劳与状态更新:</b>
+      <div style="font-size:11px;color:#80572f;margin-top:6px;background:#fff5e3;padding:8px;border-radius:8px;border:1px solid #e8d8c2;">
+        派驻员工今日疲劳值已结算。全新的一天（第${game.day}天 · 早晨）已到来，水井打水次数已重置！
+      </div>
+    </div>
+    <div class="modal-section" style="display:flex;justify-content:flex-end;">
+      <button class="btn btn-primary btn-small" onclick="closeModal(); renderShop(); renderMiniPhoneGuide(); saveGame();">确认并进入新的一天</button>
+    </div>
+  `;
+  document.getElementById('modal').classList.add('show');
+  renderShop(); renderMiniPhoneGuide();
+  saveGame();
+}
+
+function exportSaveJSON() {
+  saveGame();
+  const dataStr = JSON.stringify(game, null, 2);
+  const blob = new Blob([dataStr], {type: "application/json"});
+  const url = URL.createObjectURL(blob);
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.href = url;
+  downloadAnchor.download = `fantasy_restaurant_${currentSlot}_day${game.day}.json`;
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  document.body.removeChild(downloadAnchor);
+  URL.revokeObjectURL(url);
+  showToast('存档数据已成功导出为 JSON 文件！');
+}
+
+function importSaveJSON(event) {
+  const fileReader = new FileReader();
+  if (event.target.files[0]) {
+    fileReader.readAsText(event.target.files[0], "UTF-8");
+    fileReader.onload = function(e) {
+      try {
+        const importedData = JSON.parse(e.target.result);
+        if (importedData && importedData.money !== undefined && importedData.day !== undefined) {
+          game = importedData;
+          migrateGameData();
+          saveGame();
+          showToast('成功导入存档文件！页面已刷新。');
+          closeModal();
+          renderPage(document.querySelector('.page.active').id);
+        } else {
+          alert('导入失败：文件格式不符合幻想餐饮物语的存档结构。');
+        }
+      } catch (err) {
+        alert('解析 JSON 存档文件出错：' + err.message);
+      }
+    };
+  }
+}
+
+function resetGameSlot() {
+  if (confirm('确定要清除当前存档槽位并重新开始新旅程吗？')) {
+    localStorage.removeItem('fantasyRestaurant_' + currentSlot);
+    location.reload();
+  }
+}
+
+// ==================== GAME TICK & AUTOMATION ====================
+function gameTick() {
+  const now = Date.now();
+
+  if (game.shopOpen) {
+    if (Math.random() < 0.25 && game.customers.length < 4) {
+      spawnCustomer();
+    }
+  }
+
+  for (let i = game.customers.length - 1; i >= 0; i--) {
+    const c = game.customers[i];
+    if (c.state === 'ordering') {
+      c.orderTimer -= 1;
+      if (c.orderTimer <= 0) {
+        showToast(`【${c.name}】失去耐心，点单超时生气离开了！`);
+        game.customers.splice(i, 1);
+      }
+    } else if (c.state === 'waiting_food') {
+      c.foodTimer -= 1;
+      if (c.foodTimer <= 0) {
+        showToast(`【${c.name}】等待上菜超时，气愤地摔门离去了！`);
+        removeCustomer(c.id);
+      }
+    }
+  }
+
+  for (let st of ['oven', 'bar', 'stove']) {
+    let arr = st === 'oven' ? game.ovens : st === 'bar' ? game.bars : game.stoves;
+    for (let i = 0; i < arr.length; i++) {
+      const slot = arr[i];
+      if (slot && slot.baking && slot.endTime <= now) {
+        const dishName = slot.baking;
+        slot.baking = null;
+        slot.finishedDish = dishName;
+        game.totalBaked++;
+        if (game.codex[dishName]) game.codex[dishName].discovered = true;
+        showToast(`${st === 'oven' ? '烤箱' : st === 'bar' ? '吧台' : '灶台'} 的 【${dishName}】 制作完成了！`);
+
+        // Check if any chef with auto-serve feature is active (e.g. 初级帮厨老布)
+        // 通用：任意已激活厨师拥有 chef_autoserve 技能即自动上菜；兜底兼容老布
+        const laobu = game.staff['初级帮厨老布'];
+        const isLaobuActive = hasActiveSkillType('chef_autoserve') ||
+                              (laobu && laobu.hired && laobu.assigned && laobu.status !== '偷懒中');
+        if (isLaobuActive) {
+          slot.servedBy = '自动上菜';
+          if (slot.finishedDish) {
+            serveDish(st, i);
+          }
+        }
+      }
+    }
+  }
+
+  if (now - game.lastTick >= 30000) {
+    game.timeOfDay = (game.timeOfDay + 1) % 4;
+    game.lastTick = now;
+  }
+
+  const activeId = document.querySelector('.page.active')?.id || 'page-shop';
+  renderPage(activeId);
+  saveGame();
+}
+
+function toggleShop() {
+  game.shopOpen = !game.shopOpen;
+  if (game.shopOpen && !game.achievements['开门大吉'].done) {
+    game.achievements['开门大吉'].done = true;
+    showToast('成就解锁：开门大吉！');
+  }
+  renderShop(); renderMiniPhoneGuide();
+  saveGame();
+}
+
+function saveGame() {
+  game.lastSave = Date.now();
+  try {
+    localStorage.setItem('fantasyRestaurant_' + currentSlot, JSON.stringify(game));
+  } catch(e) {}
+}
+
+function loadGame() {
+  try {
+    const data = localStorage.getItem('fantasyRestaurant_' + currentSlot);
+    if (data) {
+      const parsed = JSON.parse(data);
+      Object.assign(game, parsed);
+      // 只使用本存档槽自己保存的店铺名，绝不沿用其他槽的名字
+      try {
+        const slotName = localStorage.getItem('fantasyRestaurant_' + currentSlot + '_name');
+        if (slotName) game.shopName = slotName;
+      } catch(e) {}
+      migrateGameData();
+    } else {
+      setTimeout(() => {
+        const customName = prompt("欢迎来到幻想餐饮世界！请为你的餐饮屋起个名字：", "小圆的梦幻餐饮屋");
+        if (customName) {
+          game.shopName = customName;
+          saveGame();
+          renderPage(document.querySelector('.page.active').id);
+        }
+      }, 300);
+    }
+  } catch(e) {}
+}
+
+function showToast(text) {
+  const existing = document.getElementById('toastBox');
+  if (existing) existing.remove();
+  const div = document.createElement('div');
+  div.id = 'toastBox';
+  div.textContent = text;
+  div.style.cssText = "position:fixed;top:80px;left:50%;transform:translateX(-50%);background:#594538;color:#fffaf0;padding:10px 18px;border-radius:12px;font-size:12px;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,0.2);animation:fadeSlide 0.2s;";
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 2500);
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+
+loadGame();
+migrateGameData();
+renderShop(); renderMiniPhoneGuide();
+setInterval(gameTick, 1000);
+
+
+function renderMiniPhoneGuide() {
+  const container = document.getElementById('phoneStepsList');
+  if (!container) return;
+  
+  let html = '';
+  guideSteps.forEach((s) => {
+    let isDone = false;
+    if (s.id === 'step1') {
+      isDone = (game.inventory['面粉'] > 0 || game.inventory['黑麦'] > 0);
+    } else if (s.id === 'step2') {
+      isDone = Object.keys(game.recipes).some(n => game.recipes[n].unlocked && (game.inventory[n] || 0) > 0);
+    } else if (s.id === 'step3') {
+      isDone = game.totalSold > 0 || game.shopOpen;
+    } else if (s.id === 'step4') {
+      isDone = Object.values(game.staff).some(st => st.hired);
+    }
+
+    const navIdxMap = {'page-shop':0, 'page-bake':1, 'page-market':2, 'page-explore':3, 'page-partners':4, 'page-decorate':5, 'page-inventory':6, 'page-quest':7, 'page-codex':8, 'page-status':9};
+    const navIdx = navIdxMap[s.targetPage] !== undefined ? navIdxMap[s.targetPage] : 0;
+
+    html += `<div class="phone-step-item ${isDone ? 'completed' : ''}">
+      <div class="phone-step-title">
+        <span>${s.title}</span>
+        <span>${isDone ? '✅' : '⏳'}</span>
+      </div>
+      <div class="phone-step-desc">${s.desc}</div>
+      <button class="phone-step-action" onclick="event.stopPropagation(); showPage('${s.targetPage}', document.querySelectorAll('.nav-item')[${navIdx}])">${s.actionName}</button>
+    </div>`;
+  });
+  container.innerHTML = html;
+}
+
+function toggleMiniPhone() {
+  const phone = document.getElementById('miniPhone');
+  if (phone) {
+    phone.classList.toggle('minimized');
+  }
+}
+
+function handlePhoneContainerClick(e) {
+  const phone = document.getElementById('miniPhone');
+  if (phone && phone.classList.contains('minimized')) {
+    phone.classList.remove('minimized');
+  }
+}
+
+startSplash();
+
+</script>
+</body>
+</html>
