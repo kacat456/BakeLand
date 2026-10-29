@@ -507,13 +507,13 @@ body {
     </div>
     <div class="card">
     <div class="card-title">自由配方灵光研发（品类引擎 · 全量材料）</div>
-    <div class="item-desc" style="margin-bottom:10px;">投入材料后系统自动判定：<b>基底决定品类</b>（面粉→贝果/可颂/吐司/塔/披萨/珍珠/芋圆…，茶叶→奶茶/果茶/纯茶/冷萃/奶盖…，大米→烩饭/炒饭/粥/饭团…），<b>做法决定形态</b>（灶台可出凉拌·炒菜·热菜·炖菜·炖汤），<b>辅料决定风味</b>（用肉名、果名、欧式地名命名，绝不出现"面粉饼"这类原料名）。<br>· 吧台<b>只做饮品</b>，面粉/米/肉/蔬菜一律进不去；<br>· 已出过的菜名<b>永不复现</b>，同一组合自动换品类或换风味，直到这个组合被研发到底。</div>
+    <div class="item-desc" style="margin-bottom:10px;">投入材料后系统自动判定：<b>基底决定品类</b>（面粉→贝果/可颂/吐司/塔/披萨/珍珠/芋圆…，茶叶→奶茶/果茶/纯茶/冷萃/奶盖…，大米→烩饭/炒饭/粥/饭团…），<b>做法决定形态</b>（灶台可出凉拌·炒菜·热菜·炖菜·炖汤），<b>辅料决定风味</b>（用肉名、果名、欧式地名命名，绝不出现"面粉饼"这类原料名）。<br>· 吧台<b>只做饮品，仅禁肉类</b>：面粉/大米/蔬菜/水果/茶/奶/糖/水均可直接调制成完整饮品（如面粉→珍珠/芋圆/奶冻，大米→米浆/米露，蔬菜→蔬菜汁/蔬果昔），不生成中间品、不进库存；肉派/咸派/炖菜请去灶台或烤箱。<br>· 已出过的菜名<b>永不复现</b>，同一组合自动换品类或换风味，直到这个组合被研发到底。</div>
       
       <div style="margin-bottom:10px;">
         <label style="font-size:11px;font-weight:600;color:#80572f;display:block;margin-bottom:4px;">1. 选择目标制作区域：</label>
         <select id="labStation" style="width:100%;padding:8px;border-radius:8px;border:1px solid #e8d8c2;background:#fffaf0;font-size:11px;font-weight:600;color:#80572f;">
           <option value="oven">🔥 魔法烤箱 (烘焙/甜点区 - 支持肉馅酥饼、肉派、面点)</option>
-          <option value="bar">🍹 精灵吧台 (特饮/饮品区 - 严禁面粉/大米/纯肉类/生蔬菜，仅限水果/茶叶/奶/糖/水)</option>
+          <option value="bar">🍹 精灵吧台 (特饮/饮品区 · 仅禁肉类 · 面粉/大米/蔬菜/水果/茶/奶/糖/水均可调制成完整饮品)</option>
           <option value="stove">🍲 魔法灶台 (主食/热菜区 - 荤素全能大炒与慢炖)</option>
         </select>
       </div>
@@ -1106,7 +1106,7 @@ function baseKind(item) {
   return 'other';
 }
 function isDrinkOnly(item)  { return baseKind(item) === 'tea' || baseKind(item) === 'water' || baseKind(item) === 'dairy' || baseKind(item) === 'sweet' || baseKind(item) === 'fruit'; }
-function isBarForbidden(item){ return ['flour','rice','meat','veg'].includes(baseKind(item)); }
+function isBarForbidden(item){ return baseKind(item) === 'meat'; } // 饮品区唯一禁令：肉类不可入吧台；面粉/米/蔬菜均可直接生成完整饮品（珍珠/芋圆/奶冻/米浆/蔬菜汁等）
 
 /* —— 2. 基底 → 品类池（品类名 + 欧式命名素材 + 价格/耗时权重） —— */
 /*     flavorSrc：可从哪些基底里抽取"风味修饰"。descTpl 是描述模板，${F} 会被替换为风味词 */
@@ -1280,7 +1280,23 @@ function _rememberNames() {
  *     返回 null 表示这个区域/组合无法产出（交回上层处理） */
 function generateDishByEngine(m1, m2, station, budget) {
   var k1 = baseKind(m1), k2 = baseKind(m2);
-  var pool = CUISINE_POOLS[k1] || CUISINE_POOLS.other;
+
+  // 【饮品区规则】肉类已在上层 isBarForbidden 被拦；面粉/米/蔬菜在吧台直接生成完整饮品（珍珠/芋圆/奶冻/米浆/蔬菜汁等），不进中间品、不进库存
+  // 因此吧台场景统一走饮品池（tea/dairy/water 的 forms），由 flavorSrc 用面粉/米/蔬菜的词库定风味，品类始终是成品
+  var pool;
+  if (station === 'bar') {
+    // 主基底若是非饮品材料（面粉/米/肉/蔬菜/蛋/甜/果），一律并入饮品池；肉类不会走到这里（上层已拦）
+    var barForms = []
+      .concat(CUISINE_POOLS.tea.forms)
+      .concat(CUISINE_POOLS.dairy.forms)
+      .concat(CUISINE_POOLS.water.forms)
+      .concat(CUISINE_POOLS.rice.forms.filter(function(f){ return ['米浆','米露','米奶','米布丁'].indexOf(f.form) >= 0; }))
+      .concat(CUISINE_POOLS.flour.forms.filter(function(f){ return ['珍珠','芋圆','奶冻'].indexOf(f.form) >= 0; }))
+      .concat(CUISINE_POOLS.veg.forms.filter(function(f){ return ['蔬菜汁','蔬果昔','青汁'].indexOf(f.form) >= 0; }));
+    pool = { cat: '饮品', station: 'bar', forms: barForms };
+  } else {
+    pool = CUISINE_POOLS[k1] || CUISINE_POOLS.other;
+  }
   // 灶台细分做法：由第二材料或预算倾向决定"凉拌/热菜/炒菜/炖菜/炖汤"的用词微调
   var methodHint = '';
   if (station === 'stove') {
@@ -1290,12 +1306,23 @@ function generateDishByEngine(m1, m2, station, budget) {
     else methodHint = (Math.random() < 0.5) ? '炒' : '热菜';
   }
   // 组装候选风味：主基底提供欧式地名，辅料提供风味词
-  // 优先级：有实质风味的辅料（果/肉/乳/蛋/甜/茶/蔬/米）> 主基底；水与调味不抢风味
+  // 吧台规则：面粉/大米/蔬菜是"小料/饮品基底"（珍珠/芋圆/奶冻/米浆/蔬菜汁），必须保留自身风味词，不被辅料抢走
   var flavorSrc = k1;
-  if (k2 !== k1 && k2 !== 'season' && k2 !== 'water') {
-    flavorSrc = k2;
-  } else if (k1 === 'water' && k2 !== 'water' && k2 !== 'season') {
-    flavorSrc = k2; // 主基底是水时，用辅料定风味（例：水+牛奶 → 牛乳风味）
+  if (station === 'bar') {
+    if (k1 === 'flour' || k1 === 'rice' || k1 === 'veg') {
+      flavorSrc = k1; // 面粉/大米/蔬菜作基底时，自身风味优先（例：面粉+月光莓 → 面粉芋圆风味，而非纯莓果）
+    } else if (k2 === 'flour' || k2 === 'rice' || k2 === 'veg') {
+      flavorSrc = k2; // 主基底是茶/奶/水而辅料是小料基底时，取小料基底风味
+    } else if (k2 !== k1 && k2 !== 'season' && k2 !== 'water') {
+      flavorSrc = k2;
+    }
+  } else {
+    // 烤箱/灶台：有实质风味的辅料（果/肉/乳/蛋/甜/茶/蔬/米）> 主基底；水与调味不抢风味
+    if (k2 !== k1 && k2 !== 'season' && k2 !== 'water') {
+      flavorSrc = k2;
+    } else if (k1 === 'water' && k2 !== 'water' && k2 !== 'season') {
+      flavorSrc = k2; // 主基底是水时，用辅料定风味（例：水+牛奶 → 牛乳风味）
+    }
   }
   var fwList = FLAVOR_WORD[flavorSrc] || FLAVOR_WORD.other;
   var forms = (pool && pool.forms) ? pool.forms.slice() : CUISINE_POOLS.other.forms.slice();
@@ -1758,20 +1785,6 @@ function updateLabDropdownB() {
   };
 }
 
-function isMeatItem(item) {
-  const meatList = Object.keys(marketCategories['meat'].items);
-  return meatList.includes(item) || item.includes('肉') || item.includes('鸡') || item.includes('牛') || item.includes('排');
-}
-
-function isFlourOrRice(item) {
-  return item.includes('面粉') || item.includes('黑麦') || item.includes('大米') || item.includes('米') || item.includes('麦');
-}
-
-function isVegItem(item) {
-  const vegList = Object.keys(marketCategories['veg'].items);
-  return vegList.includes(item) || item.includes('菜') || item.includes('蘑菇') || item.includes('土豆') || item.includes('萝卜');
-}
-
 function tryResearch() {
   const station = document.getElementById('labStation').value;
   const budget = parseInt(document.getElementById('labBudget').value) || 20;
@@ -1784,8 +1797,9 @@ function tryResearch() {
   }
 
   if (station === 'bar') {
-    if (isFlourOrRice(m1) || isFlourOrRice(m2) || isMeatItem(m1) || isMeatItem(m2) || isVegItem(m1) || isVegItem(m2)) {
-      showToast('吧台无法处理这种食材，请去灶台或烤箱');
+    // 【吧台唯一禁令：肉类不得入吧台】面粉/大米/蔬菜/水果/茶/奶/糖/水 一律放行，直接生成完整饮品（珍珠/芋圆/奶冻/米浆/蔬菜汁等），不生成中间品、不进库存
+    if (isBarForbidden(m1) || isBarForbidden(m2)) {
+      showToast('吧台仅不处理肉类食材（可制作面粉/大米/蔬菜/水果等完整饮品），肉派/咸派/炖菜请换肉类去灶台或烤箱，或换非肉类继续吧台研发');
       return;
     }
   }
@@ -1835,9 +1849,9 @@ function tryResearch() {
   let time = 30;
   let desc = "";
 
-  // 饮品区铁律：面粉/米/肉/蔬菜类原料一律不得进入吧台
+  // 饮品区规则：仅肉类不得进入吧台；面粉/米/蔬菜均可直接生成完整饮品（珍珠/芋圆/奶冻/米浆/蔬菜汁等），不生成中间品
   if (station === 'bar' && (isBarForbidden(m1) || isBarForbidden(m2))) {
-    showToast('吧台只能调饮茶、奶、糖、水果、花与水，无法处理面粉/米/肉/蔬菜类食材，请去灶台或烤箱');
+    showToast('吧台不处理肉类食材（肉派/咸派/炖菜请去灶台或烤箱），其余材料均可直接调制成完整饮品');
     return;
   }
 
