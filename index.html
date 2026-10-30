@@ -437,7 +437,6 @@ body {
     <!-- Steps rendered dynamically -->
   </div>
 </div>
->
 
 <div id="name-modal">
   <h2>为你的餐厅取一个名字</h2>
@@ -1530,20 +1529,26 @@ function spawnCustomer() {
   const unlockedRecipes = Object.keys(game.recipes).filter(n => game.recipes[n].unlocked);
   if (unlockedRecipes.length === 0) return;
 
-  const targetDish = unlockedRecipes[Math.floor(Math.random() * unlockedRecipes.length)];
+  let targetDish = unlockedRecipes[Math.floor(Math.random() * unlockedRecipes.length)];
   const r = game.recipes[targetDish];
 
   if (!r || !isStationUnlocked(r.station)) {
-    return;
+    // 保底：若随机菜谱对应设备未解锁，改用烘焙区默认菜"黑麦粗面包"，确保第一天必能营业
+    const fallback = Object.keys(game.recipes).find(function(n){ return game.recipes[n].unlocked && game.recipes[n].station === 'oven'; });
+    if (fallback) {
+      targetDish = fallback;
+    } else {
+      return;
+    }
   }
 
   const customerTypes = ['普通旅人', '饥饿冒险者', '贵族食客', '精灵学者', '吟游诗人'];
   const cName = customerTypes[Math.floor(Math.random() * customerTypes.length)];
 
   const salesInfo = getSalesMultiplier();
-  const orderPatience = Math.floor(20 * salesInfo.patienceMult);
+  const orderPatience = Math.max(1, Math.floor(15 * salesInfo.patienceMult));
   const tableBonus = (game.decorations['秘境堂食木桌椅'] && game.decorations['秘境堂食木桌椅'].bought) ? (1 + 0.15 * game.decorations['秘境堂食木桌椅'].level) : 1.0;
-  const foodPatience = Math.floor(65 * tableBonus * salesInfo.patienceMult);
+  const foodPatience = Math.max(1, Math.floor(60 * tableBonus * salesInfo.patienceMult));
 
   const newCust = {
     id: 'cust_' + Date.now() + '_' + Math.floor(Math.random()*1000),
@@ -1551,6 +1556,7 @@ function spawnCustomer() {
     wantDish: targetDish,
     state: 'ordering',
     orderTimer: orderPatience,
+    orderDeadline: Date.now() + orderPatience * 1000,
     maxOrderTimer: orderPatience,
     foodTimer: foodPatience,
     maxFoodTimer: foodPatience,
@@ -1638,9 +1644,10 @@ function acceptCustomerOrder(custId) {
     }
   }
 
-  let cookTime = Math.floor(r.time * speedMultiplier);
+  let cookTime = Math.max(1, Math.floor(r.time * calcSkillFactor('chef_speed', stationType, 'multiply-small')));
 
   cust.state = 'waiting_food';
+  cust.foodDeadline = Date.now() + cust.foodTimer * 1000;
   cust.assignedSlot = { stationType, slotIdx: targetSlotIdx };
 
   slotsArr[targetSlotIdx] = {
@@ -1657,6 +1664,1418 @@ function acceptCustomerOrder(custId) {
 }
 
 function removeCustomer(custId) {
+  for (let st of ['oven', 'bar', 'stove']) {
+    let arr = st === 'oven' ? game.ovens : st === 'bar' ? game.bars : game.stoves;
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i].assignedCustomerId === custId && !arr[i].finishedDish) {
+        arr[i] = { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null };
+      }
+    }
+  }
+  game.customers = game.customers.filter(c => c.id !== custId);
+  renderShop(); renderMiniPhoneGuide();
+}
+
+// ==================== MATERIAL SELECTOR & LAB LOGIC ====================
+function switchMatATab(tabKey) {
+  currentMatATabKey = tabKey;
+  const container = document.getElementById('matATabs');
+  if (container) {
+    container.querySelectorAll('.tab-btn').forEach((btn, idx) => {
+      const keys = ['staple', 'meat', 'veg', 'condiment'];
+      if (keys[idx] === tabKey) btn.classList.add('active');
+      else btn.classList.remove('active');
+    });
+  }
+  updateLabDropdownA();
+}
+
+function switchMatBTab(tabKey) {
+  currentMatBTabKey = tabKey;
+  const container = document.getElementById('matBTabs');
+  if (container) {
+    container.querySelectorAll('.tab-btn').forEach((btn, idx) => {
+      const keys = ['staple', 'meat', 'veg', 'condiment'];
+      if (keys[idx] === tabKey) btn.classList.add('active');
+      else btn.classList.remove('active');
+    });
+  }
+  updateLabDropdownB();
+}
+
+function updateLabDropdowns() {
+  migrateGameData();
+  updateLabDropdownA();
+  updateLabDropdownB();
+}
+
+function getAllItemsForCategory(catKey) {
+  const catItemsObj = marketCategories[catKey] ? marketCategories[catKey].items : {};
+  return Object.keys(catItemsObj);
+}
+
+function updateLabDropdownA() {
+  const selectElem = document.getElementById('labMatA');
+  const descElem = document.getElementById('matADesc');
+  if (!selectElem) return;
+
+  const currentVal = selectElem.value;
+  const items = getAllItemsForCategory(currentMatATabKey);
+
+  let html = '<option value="">请选择主料A...</option>';
+  for (let item of items) {
+    const qty = game.inventory[item] || 0;
+    if (qty === 0) {
+      html += `<option value="${item}" style="color:#999;">${item} (库存0)</option>`;
+    } else {
+      html += `<option value="${item}">${item} (库存:${qty})</option>`;
+    }
+  }
+  selectElem.innerHTML = html;
+
+  if (currentVal && items.includes(currentVal)) {
+    selectElem.value = currentVal;
+    const qty = game.inventory[currentVal] || 0;
+    descElem.textContent = `已选: ${currentVal} (有${qty})`;
+    if (qty === 0) descElem.style.color = '#d9534f';
+    else descElem.style.color = '#9c8471';
+  } else {
+    descElem.textContent = '已选: 无';
+    descElem.style.color = '#9c8471';
+  }
+
+  selectElem.onchange = function() {
+    const v = selectElem.value;
+    const qty = game.inventory[v] || 0;
+    descElem.textContent = v ? `已选: ${v} (有${qty})` : '已选: 无';
+    if (qty === 0) descElem.style.color = '#d9534f';
+    else descElem.style.color = '#9c8471';
+  };
+}
+
+function updateLabDropdownB() {
+  const selectElem = document.getElementById('labMatB');
+  const descElem = document.getElementById('matBDesc');
+  if (!selectElem) return;
+
+  const currentVal = selectElem.value;
+  const items = getAllItemsForCategory(currentMatBTabKey);
+
+  let html = '<option value="">请选择辅料B...</option>';
+  for (let item of items) {
+    const qty = game.inventory[item] || 0;
+    if (qty === 0) {
+      html += `<option value="${item}" style="color:#999;">${item} (库存0)</option>`;
+    } else {
+      html += `<option value="${item}">${item} (库存:${qty})</option>`;
+    }
+  }
+  selectElem.innerHTML = html;
+
+  if (currentVal && items.includes(currentVal)) {
+    selectElem.value = currentVal;
+    const qty = game.inventory[currentVal] || 0;
+    descElem.textContent = `已选: ${currentVal} (有${qty})`;
+    if (qty === 0) descElem.style.color = '#d9534f';
+    else descElem.style.color = '#9c8471';
+  } else {
+    descElem.textContent = '已选: 无';
+    descElem.style.color = '#9c8471';
+  }
+
+  selectElem.onchange = function() {
+    const v = selectElem.value;
+    const qty = game.inventory[v] || 0;
+    descElem.textContent = v ? `已选: ${v} (有${qty})` : '已选: 无';
+    if (qty === 0) descElem.style.color = '#d9534f';
+    else descElem.style.color = '#9c8471';
+  };
+}
+
+function tryResearch() {
+  const station = document.getElementById('labStation').value;
+  const budget = parseInt(document.getElementById('labBudget').value) || 20;
+  const m1 = document.getElementById('labMatA').value;
+  const m2 = document.getElementById('labMatB').value;
+  
+  if (!m1 || !m2) {
+    showToast('请在上方分类卡片中完整选择主料A与辅料B！');
+    return;
+  }
+
+  if (station === 'bar') {
+    // 【吧台唯一禁令：肉类不得入吧台】面粉/大米/蔬菜/水果/茶/奶/糖/水 一律放行，直接生成完整饮品（珍珠/芋圆/奶冻/米浆/蔬菜汁等），不生成中间品、不进库存
+    if (isBarForbidden(m1) || isBarForbidden(m2)) {
+      showToast('吧台仅不处理肉类食材（可制作面粉/大米/蔬菜/水果等完整饮品），肉派/咸派/炖菜请换肉类去灶台或烤箱，或换非肉类继续吧台研发');
+      return;
+    }
+  }
+
+  const needM1 = (m1 === m2) ? 2 : 1;
+  const needM2 = (m1 === m2) ? 0 : 1;
+
+  if ((game.inventory[m1] || 0) < needM1) {
+    showToast(`【${m1}】不足，请前往集市购买或探索获取`);
+    return;
+  }
+  if (m1 !== m2 && (game.inventory[m2] || 0) < needM2) {
+    showToast(`【${m2}】不足，请前往集市购买或探索获取`);
+    return;
+  }
+
+  if (game.money < budget) {
+    showToast(`研发预算不足！当前预算需要 ${budget} 铜币。`);
+    return;
+  }
+
+  game.money -= budget;
+  game.todayCost += budget;
+
+  game.inventory[m1] -= needM1;
+  if (m1 !== m2) {
+    game.inventory[m2] -= needM2;
+  }
+
+  let qualityPrefix = "";
+  let priceMultiplier = 1.0;
+  if (budget === 60) {
+    qualityPrefix = "精良·";
+    priceMultiplier = 1.6;
+  } else if (budget === 150) {
+    qualityPrefix = "史诗·至臻";
+    priceMultiplier = 2.6;
+  }
+
+  let key1 = `${m1}+${m2}`;
+  let key2 = `${m2}+${m1}`;
+  let preset = classicRecipesPresets[key1] || classicRecipesPresets[key2];
+
+  let recipeName = "";
+  let category = "";
+  let sellPrice = 30;
+  let time = 30;
+  let desc = "";
+
+  // 饮品区规则：仅肉类不得进入吧台；面粉/米/蔬菜均可直接生成完整饮品（珍珠/芋圆/奶冻/米浆/蔬菜汁等），不生成中间品
+  if (station === 'bar' && (isBarForbidden(m1) || isBarForbidden(m2))) {
+    showToast('吧台不处理肉类食材（肉派/咸派/炖菜请去灶台或烤箱），其余材料均可直接调制成完整饮品');
+    return;
+  }
+
+  _rememberNames(); // 同步已解锁菜单，用于全局去重
+  // v24 归一化：老存档里带"精良·/史诗·至臻"前缀的预设菜名，按本体名并入去重，避免旧名绕过新引擎
+  (function () {
+    var PREFIX = /^((精良·)|(史诗·至臻))+/;
+    Object.keys(game.recipes).forEach(function (oldName) {
+      var base = oldName.replace(PREFIX, '');
+      if (base !== oldName && game.recipes[oldName].unlocked) {
+        _generatedNameSet.add(base);
+        if (game.codex[oldName] && !game.codex[base]) game.codex[base] = game.codex[oldName];
+        if (!game.menu.includes(base)) game.menu.push(base);
+        var r = game.recipes[oldName];
+        if (!game.recipes[base]) game.recipes[base] = { category: r.category, station: r.station, ingredients: r.ingredients, time: r.time, sellPrice: r.sellPrice, unlocked: true, desc: r.desc };
+        else game.recipes[base].unlocked = true;
+        game.recipes[base].sellPrice = Math.max(game.recipes[base].sellPrice || 0, r.sellPrice || 0);
+        if (!game.codex[base]) game.codex[base] = { desc: r.desc, discovered: true };
+        game.codex[base].discovered = true;
+      }
+    });
+  })();
+
+
+  if (preset && preset.station === station) {
+    category = preset.cat;
+    let basePrice = preset.prices[budget] || (preset.prices[20] * priceMultiplier);
+    sellPrice = Math.floor(basePrice);
+    time = preset.time + (budget === 150 ? 15 : budget === 60 ? 5 : 0);
+    recipeName = preset.name; // 预设配方名已按品类命名，不再叠加品质前缀（避免"精良·皇家丝滑奶茶"式叠加）
+    desc = preset.desc + (budget > 20 ? ` 经${budget === 150 ? '皇家烘焙大师' : '资深工匠'}精心特制，风味更上一层。` : '');
+    // 预设配方同样受去重约束：若已存在，仅刷新售价，不重复造名
+    if (_generatedNameSet.has(recipeName)) {
+      if (!game.recipes[recipeName]) game.recipes[recipeName] = {};
+      game.recipes[recipeName].sellPrice = Math.max(game.recipes[recipeName].sellPrice || 0, sellPrice);
+      game.recipes[recipeName].unlocked = true;
+      game.recipes[recipeName].category = category;
+      game.recipes[recipeName].station = station;
+      game.recipes[recipeName].ingredients = (m1 === m2) ? { [m1]: 2 } : { [m1]: 1, [m2]: 1 };
+      game.recipes[recipeName].time = time;
+      game.recipes[recipeName].desc = desc;
+      if (!game.codex[recipeName]) game.codex[recipeName] = { desc: desc, discovered: true };
+      game.codex[recipeName].discovered = true;
+      if (!game.menu.includes(recipeName)) game.menu.push(recipeName);
+      const stationLabel = station === 'oven' ? '【魔法烤箱】' : station === 'bar' ? '【精灵吧台】' : '【魔法灶台】';
+      showToast(`配方【${recipeName}】早已记入菜单，本次为其精研提级至售价 ${sellPrice} 铜（${stationLabel}）！`);
+      renderBake(); renderShop(); renderMiniPhoneGuide(); updateLabDropdowns(); saveGame();
+      return;
+    }
+  } else {
+    // 走品类配方引擎：基底决定品类、做法决定形态、辅料决定风味，全自动命名+去重
+    const eng = generateDishByEngine(m1, m2, station, budget);
+    if (eng) {
+      category = eng.cat;
+      time = eng.time;
+      recipeName = eng.name;
+      desc = eng.desc;
+      sellPrice = eng.sellPrice;
+    } else {
+      // 该组合的品类池已被穷尽（全部同名），提示换材料而非硬造
+      showToast(`「${m1}」与「${m2}」的菜单已经被你研发到底啦！试试换一种材料或换个制作区域，开拓全新菜式。`);
+      renderBake(); updateLabDropdowns(); saveGame();
+      return;
+    }
+  }
+
+  if (!game.recipes[recipeName]) {
+    game.recipes[recipeName] = {
+      category: category,
+      station: station,
+      ingredients: (m1 === m2) ? { [m1]: 2 } : { [m1]: 1, [m2]: 1 },
+      time: time,
+      sellPrice: sellPrice,
+      unlocked: true,
+      desc: desc
+    };
+    game.codex[recipeName] = {
+      desc: desc,
+      discovered: true
+    };
+  } else {
+    game.recipes[recipeName].unlocked = true;
+    game.recipes[recipeName].sellPrice = Math.max(game.recipes[recipeName].sellPrice, sellPrice);
+    _generatedNameSet.add(recipeName); // 旧存档已解锁的菜名纳入去重，避免引擎再次造出同名
+  }
+
+  if (game.codex[recipeName]) game.codex[recipeName].discovered = true;
+  if (!game.menu.includes(recipeName)) {
+    game.menu.push(recipeName);
+  }
+
+  const stationLabel = station === 'oven' ? '【魔法烤箱】' : station === 'bar' ? '【精灵吧台】' : '【魔法灶台】';
+  const tierTxt = budget >= 150 ? '至臻典藏' : budget >= 60 ? '精工细作' : '家常风味';
+  showToast(`灵光一闪！投入 ${budget} 铜币预算，在${stationLabel}以「${tierTxt}」研发出全新菜式【${recipeName}】（售价:${sellPrice}铜）！`);
+  renderBake();
+  renderShop(); renderMiniPhoneGuide();
+  updateLabDropdowns();
+  saveGame();
+}
+
+function showPage(pageId, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderPage(pageId);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderPage(pageId) {
+  migrateGameData();
+  document.getElementById('shopTitleDisplay').textContent = game.shopName;
+  document.getElementById('shopSubTitle').textContent = game.shopName;
+  switch(pageId) {
+    case 'page-shop':
+  if (game._exploreViewedAt) { game._explorePausedAt = Date.now(); }
+  renderShop(); renderMiniPhoneGuide(); break;
+    case 'page-bake': renderBake(); updateLabDropdowns(); break;
+    case 'page-market': renderMarket(); break;
+    case 'page-explore': renderExplore(); break;
+    case 'page-partners': renderStaffManagement(); break;
+    case 'page-decorate': renderDecorate(); break;
+    case 'page-inventory': renderInventory(); break;
+    case 'page-quest': renderQuest(); break;
+    case 'page-codex': renderCodex(); break;
+    case 'page-status': renderStatus(); break;
+  }
+}
+
+function renderShop() {
+  migrateGameData();
+  document.getElementById('dayDisplay').textContent = `第${game.day}天 · ${timeNames[game.timeOfDay]}`;
+  document.getElementById('weatherDisplay').textContent = weatherNames[game.weather];
+  document.getElementById('moneyDisplay').textContent = `${Math.floor(game.money)} 铜币`;
+  document.getElementById('shopStatus').textContent = game.shopOpen ? '营业中' : '已关门';
+  document.getElementById('shopStatus').className = 'status-badge ' + (game.shopOpen ? 'open' : 'closed');
+  document.getElementById('todaySales').textContent = `今日销售: ${game.todaySold}`;
+  document.getElementById('todayRevenue').textContent = `${game.todayRevenue} 铜币`;
+  document.getElementById('todayCost').textContent = `${game.todayCost} 铜币`;
+  document.getElementById('todayProfit').textContent = `${game.todayRevenue - game.todayCost} 铜币`;
+  document.getElementById('atmosphereDesc').textContent = `当前店铺氛围值：${game.atmosphere} 点（可通过装修购买各类氛围布置及升级桌椅提升）。`;
+  document.getElementById('activeEventDisplay').textContent = `当前随机事件/经营状态: ${game.currentEvent}`;
+
+  let queueHtml = '';
+  if (game.customers.length === 0) {
+    queueHtml = `<div style="font-size:11px;color:#9c8471;text-align:center;padding:8px;">当前暂无顾客进店，开门营业后将陆续有客流造访。</div>`;
+  } else {
+    for (let c of game.customers) {
+      if (c.state === 'ordering') {
+        const remSec = Math.max(0, Math.ceil(c.orderTimer));
+        queueHtml += `<div class="customer-card">
+          <div>
+            <span class="item-name">${c.name} 想吃: ${c.wantDish}</span>
+            <div class="item-desc" style="color:#d9534f;font-weight:600;">点单耐心: ${remSec}秒</div>
+          </div>
+          <button class="btn btn-primary btn-small" onclick="acceptCustomerOrder('${c.id}')">点击接单</button>
+        </div>`;
+      } else {
+        const remSec = Math.max(0, Math.ceil(c.foodTimer));
+        queueHtml += `<div class="customer-card" style="background:#e8f4e2;">
+          <div>
+            <span class="item-name">${c.name} 等待: ${c.wantDish}</span>
+            <div class="item-desc" style="color:#55784b;font-weight:600;">等餐中: ${remSec}秒</div>
+          </div>
+          <span style="font-size:11px;color:#55784b;font-weight:700;">制作中...</span>
+        </div>`;
+      }
+    }
+  }
+  document.getElementById('customerQueueContainer').innerHTML = queueHtml;
+
+  let stationsHtml = '';
+
+  let ovenSlotsHtml = '';
+  for (let i = 0; i < 3; i++) {
+    const slot = game.ovens[i];
+    if (slot && slot.finishedDish) {
+      const servedMsg = slot.servedBy ? `<br><span style="font-size:9px;color:#55784b;">${slot.servedBy}已自动上菜</span>` : '';
+      ovenSlotsHtml += `<div class="work-slot finished" onclick="serveDish('oven', ${i})"><b>${slot.finishedDish}</b><br><span style="font-size:10px;color:#4f6b43;font-weight:700;">点击上菜!</span>${servedMsg}</div>`;
+    } else if (slot && slot.baking) {
+      const rem = Math.max(0, Math.ceil((slot.endTime - Date.now()) / 1000));
+      ovenSlotsHtml += `<div class="work-slot working"><b>${slot.baking}</b><span class="slot-timer">${rem}秒</span></div>`;
+    } else {
+      ovenSlotsHtml += `<div class="work-slot">烘焙槽#${i+1}<br><span style="font-size:9px;color:#a36e31;">等待接单</span></div>`;
+    }
+  }
+  stationsHtml += `
+    <div class="station-box">
+      <div class="station-title"><span>烘焙区 (魔法烤箱)</span><span style="font-size:10px;color:#55784b;">已拥有 (3槽位)</span></div>
+      <div class="slot-row">${ovenSlotsHtml}</div>
+    </div>
+  `;
+
+  const barBought = isStationUnlocked('bar');
+  if (barBought) {
+    let barSlotsHtml = '';
+    for (let i = 0; i < 3; i++) {
+      const slot = game.bars[i];
+      if (slot && slot.finishedDish) {
+        const servedMsg = slot.servedBy ? `<br><span style="font-size:9px;color:#55784b;">${slot.servedBy}已自动上菜</span>` : '';
+        barSlotsHtml += `<div class="work-slot finished" onclick="serveDish('bar', ${i})"><b>${slot.finishedDish}</b><br><span style="font-size:10px;color:#4f6b43;font-weight:700;">点击上菜!</span>${servedMsg}</div>`;
+      } else if (slot && slot.baking) {
+        const rem = Math.max(0, Math.ceil((slot.endTime - Date.now()) / 1000));
+        barSlotsHtml += `<div class="work-slot working"><b>${slot.baking}</b><span class="slot-timer">${rem}秒</span></div>`;
+      } else {
+        barSlotsHtml += `<div class="work-slot">调配槽#${i+1}<br><span style="font-size:9px;color:#a36e31;">等待接单</span></div>`;
+      }
+    }
+    stationsHtml += `
+      <div class="station-box">
+        <div class="station-title"><span>饮品区 (精灵吧台)</span><span style="font-size:10px;color:#55784b;">已解锁 (3槽位)</span></div>
+        <div class="slot-row">${barSlotsHtml}</div>
+      </div>
+    `;
+  } else {
+    stationsHtml += `
+      <div class="station-box">
+        <div class="station-title"><span>饮品区 (精灵吧台)</span><span style="font-size:10px;color:#9b6255;">未解锁</span></div>
+        <div class="slot-row">
+          <div class="work-slot locked" onclick="showPage('page-decorate', document.querySelectorAll('.nav-item')[5])">未解锁<br><span style="font-size:9px;color:#a36e31;">去装修购买</span></div>
+          <div class="work-slot locked" onclick="showPage('page-decorate', document.querySelectorAll('.nav-item')[5])">未解锁<br><span style="font-size:9px;color:#a36e31;">去装修购买</span></div>
+          <div class="work-slot locked" onclick="showPage('page-decorate', document.querySelectorAll('.nav-item')[5])">未解锁<br><span style="font-size:9px;color:#a36e31;">去装修购买</span></div>
+        </div>
+      </div>
+    `;
+  }
+
+  const stoveBought = isStationUnlocked('stove');
+  if (stoveBought) {
+    let stoveSlotsHtml = '';
+    for (let i = 0; i < 3; i++) {
+      const slot = game.stoves[i];
+      if (slot && slot.finishedDish) {
+        const servedMsg = slot.servedBy ? `<br><span style="font-size:9px;color:#55784b;">${slot.servedBy}已自动上菜</span>` : '';
+        stoveSlotsHtml += `<div class="work-slot finished" onclick="serveDish('stove', ${i})"><b>${slot.finishedDish}</b><br><span style="font-size:10px;color:#4f6b43;font-weight:700;">点击上菜!</span>${servedMsg}</div>`;
+      } else if (slot && slot.baking) {
+        const rem = Math.max(0, Math.ceil((slot.endTime - Date.now()) / 1000));
+        stoveSlotsHtml += `<div class="work-slot working"><b>${slot.baking}</b><span class="slot-timer">${rem}秒</span></div>`;
+      } else {
+        stoveSlotsHtml += `<div class="work-slot">灶台槽#${i+1}<br><span style="font-size:9px;color:#a36e31;">等待接单</span></div>`;
+      }
+    }
+    stationsHtml += `
+      <div class="station-box">
+        <div class="station-title"><span>主食/烹饪区 (魔法灶台)</span><span style="font-size:10px;color:#55784b;">已解锁 (3槽位)</span></div>
+        <div class="slot-row">${stoveSlotsHtml}</div>
+      </div>
+    `;
+  } else {
+    stationsHtml += `
+      <div class="station-box">
+        <div class="station-title"><span>主食/烹饪区 (魔法灶台)</span><span style="font-size:10px;color:#9b6255;">未解锁</span></div>
+        <div class="slot-row">
+          <div class="work-slot locked" onclick="showPage('page-decorate', document.querySelectorAll('.nav-item')[5])">未解锁<br><span style="font-size:9px;color:#a36e31;">去装修购买</span></div>
+          <div class="work-slot locked" onclick="showPage('page-decorate', document.querySelectorAll('.nav-item')[5])">未解锁<br><span style="font-size:9px;color:#a36e31;">去装修购买</span></div>
+          <div class="work-slot locked" onclick="showPage('page-decorate', document.querySelectorAll('.nav-item')[5])">未解锁<br><span style="font-size:9px;color:#a36e31;">去装修购买</span></div>
+        </div>
+      </div>
+    `;
+  }
+
+  const container = document.getElementById('homeStationsContainer');
+  if (container) container.innerHTML = stationsHtml;
+}
+
+function drawWater() {
+  if (game.waterTodayCount >= 10) {
+    showToast('今日打水次数已用完（10/10次），请明天再来。');
+    return;
+  }
+  game.waterTodayCount++;
+  game.inventory['水'] = (game.inventory['水'] || 0) + 5;
+  showToast(`从镇口水井提来了 5 份清凉的井水！今日已打水 ${game.waterTodayCount}/10 次`);
+  renderShop(); renderMiniPhoneGuide();
+  saveGame();
+}
+
+function renderBake() {
+  migrateGameData();
+  let wsHtml = '';
+  
+  wsHtml += `<div style="font-weight:600;font-size:12px;margin:8px 0 4px;color:#80572f;">魔法烤箱 (烘焙区 · 3槽位)</div>`;
+  for (let i = 0; i < 3; i++) {
+    const slot = game.ovens[i];
+    if (slot && slot.finishedDish) {
+      wsHtml += `<div class="list-item"><span class="item-name">烤箱 #${i+1} 已完成成品: ${slot.finishedDish}</span><button class="btn btn-success btn-small" onclick="serveDish('oven', ${i})">上菜</button></div>`;
+    } else if (slot && slot.baking) {
+      const rem = Math.max(0, Math.ceil((slot.endTime - Date.now()) / 1000));
+      wsHtml += `<div class="list-item"><span class="item-name">烤箱 #${i+1} 正在烘焙: ${slot.baking}</span><span class="item-price">${rem}秒</span><button class="btn btn-danger btn-small" onclick="recycleSlot('oven', ${i})">丢弃/回收</button></div>`;
+    } else {
+      wsHtml += `<div class="list-item"><span class="item-name" style="color:#bfa794;">空闲烤箱 #${i+1} (通过接待顾客自动排单)</span></div>`;
+    }
+  }
+
+  wsHtml += `<div style="font-weight:600;font-size:12px;margin:14px 0 4px;color:#80572f;">精灵吧台 (饮品区 · 3槽位)</div>`;
+  if (isStationUnlocked('bar')) {
+    for (let i = 0; i < 3; i++) {
+      const slot = game.bars[i];
+      if (slot && slot.finishedDish) {
+        wsHtml += `<div class="list-item"><span class="item-name">吧台槽 #${i+1} 已完成成品: ${slot.finishedDish}</span><button class="btn btn-success btn-small" onclick="serveDish('bar', ${i})">上菜</button></div>`;
+      } else if (slot && slot.baking) {
+        const rem = Math.max(0, Math.ceil((slot.endTime - Date.now()) / 1000));
+        wsHtml += `<div class="list-item"><span class="item-name">吧台槽 #${i+1} 正在调制: ${slot.baking}</span><span class="item-price">${rem}秒</span><button class="btn btn-danger btn-small" onclick="recycleSlot('bar', ${i})">丢弃/回收</button></div>`;
+      } else {
+        wsHtml += `<div class="list-item"><span class="item-name" style="color:#bfa794;">空闲吧台槽 #${i+1}</span></div>`;
+      }
+    }
+  } else {
+    wsHtml += `<div style="font-size:11px;color:#9b6255;margin:8px 0;padding:8px;background:#f8efdf;border-radius:8px;display:flex;justify-content:space-between;align-items:center;"><span>未解锁：请前往装修页面购买【精灵饮品吧台】(只需60铜币)</span><button class="btn btn-primary btn-small" onclick="showPage('page-decorate', document.querySelectorAll('.nav-item')[5])">去购买</button></div>`;
+  }
+
+  wsHtml += `<div style="font-weight:600;font-size:12px;margin:14px 0 4px;color:#80572f;">魔法灶台 (主食/烹饪区 · 3槽位)</div>`;
+  if (isStationUnlocked('stove')) {
+    for (let i = 0; i < 3; i++) {
+      const slot = game.stoves[i];
+      if (slot && slot.finishedDish) {
+        wsHtml += `<div class="list-item"><span class="item-name">灶台槽 #${i+1} 已完成成品: ${slot.finishedDish}</span><button class="btn btn-success btn-small" onclick="serveDish('stove', ${i})">上菜</button></div>`;
+      } else if (slot && slot.baking) {
+        const rem = Math.max(0, Math.ceil((slot.endTime - Date.now()) / 1000));
+        wsHtml += `<div class="list-item"><span class="item-name">灶台槽 #${i+1} 正在烹饪: ${slot.baking}</span><span class="item-price">${rem}秒</span><button class="btn btn-danger btn-small" onclick="recycleSlot('stove', ${i})">丢弃/回收</button></div>`;
+      } else {
+        wsHtml += `<div class="list-item"><span class="item-name" style="color:#bfa794;">空闲灶台槽 #${i+1}</span></div>`;
+      }
+    }
+  } else {
+    wsHtml += `<div style="font-size:11px;color:#9b6255;margin:8px 0;padding:8px;background:#f8efdf;border-radius:8px;display:flex;justify-content:space-between;align-items:center;"><span>未解锁：请前往装修页面购买【魔法主食灶台】(只需80铜币)</span><button class="btn btn-primary btn-small" onclick="showPage('page-decorate', document.querySelectorAll('.nav-item')[5])">去购买</button></div>`;
+  }
+
+  const wsElem = document.getElementById('workshopSlotsList');
+  if (wsElem) wsElem.innerHTML = wsHtml;
+
+  let recipeHtml = '';
+  const salesMult = getSalesMultiplier().priceMult;
+  for (const [name, r] of Object.entries(game.recipes)) {
+    if (r.unlocked) {
+      const finalP = Math.floor(r.sellPrice * salesMult);
+      recipeHtml += `<div class="list-item"><div><span class="item-name">[${r.category}] ${name}</span><div class="item-desc">区域:${r.station} | 耗时:${r.time}秒 | 基础售价:${r.sellPrice}铜 (当前生效售价:${finalP}铜)</div></div><span style="font-size:11px;color:#55784b;">已解锁食谱</span></div>`;
+    }
+  }
+  const recElem = document.getElementById('recipeList');
+  if (recElem) recElem.innerHTML = recipeHtml;
+}
+
+function recycleSlot(stationType, i) {
+  let arr = stationType === 'oven' ? game.ovens : stationType === 'bar' ? game.bars : game.stoves;
+  const slot = arr[i];
+  if (slot.finishedDish) {
+    const dishPrice = game.recipes[slot.finishedDish] ? game.recipes[slot.finishedDish].sellPrice : 20;
+    const halfPrice = Math.floor(dishPrice / 2);
+    game.money += halfPrice;
+    game.todayRevenue += halfPrice;
+    showToast(`已将残留成品【${slot.finishedDish}】以半价 ${halfPrice} 铜币回收，槽位已清空！`);
+  } else {
+    showToast('已强制中止并清空当前制作槽位。');
+  }
+  arr[i] = { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null };
+  renderBake();
+  renderShop(); renderMiniPhoneGuide();
+  saveGame();
+}
+
+function serveDish(stationType, i) {
+  let arr = stationType === 'oven' ? game.ovens : stationType === 'bar' ? game.bars : game.stoves;
+  const slot = arr[i];
+  if (!slot.finishedDish) return;
+
+  const dishName = slot.finishedDish;
+  const custId = slot.assignedCustomerId;
+  const basePrice = game.recipes[dishName] ? game.recipes[dishName].sellPrice : 25;
+  const salesMult = getSalesMultiplier().priceMult;
+  const finalPrice = Math.floor(basePrice * salesMult);
+
+  game.money += finalPrice;
+  game.todayRevenue += finalPrice;
+  game.todaySold++;
+  game.totalSold++;
+
+  showToast(`上菜成功！招待客热乎出炉，获得营收 ${finalPrice} 铜币（含销售加成）！`);
+
+  if (custId) {
+    game.customers = game.customers.filter(c => c.id !== custId);
+  }
+
+  arr[i] = { baking: null, finishedDish: null, endTime: 0, assignedCustomerId: null, servedBy: null };
+  renderShop(); renderMiniPhoneGuide();
+  renderBake();
+  saveGame();
+}
+
+// ==================== V23: STRICT SEPARATION STAFF MANAGEMENT ====================
+function switchStaffTab(tabKey) {
+  currentStaffTabKey = tabKey;
+  const container = document.getElementById('staffTabs');
+  if (container) {
+    container.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    event.currentTarget.classList.add('active');
+  }
+  renderStaffManagement();
+}
+
+function renderStaffManagement() {
+  migrateGameData();
+  let html = '';
+
+  for (const [id, s] of Object.entries(game.staff)) {
+    // STRICT TAB LOGIC: Ensure zero cross-category bleeding
+    if (currentStaffTabKey === 'chef' && s.subType !== 'chef') continue;
+    if (currentStaffTabKey === 'sales' && s.subType !== 'sales') continue;
+    if (currentStaffTabKey === 'expedition' && s.subType !== 'expedition') continue;
+
+    let actionBtn = '';
+    if (!s.hired) {
+      actionBtn = `<button class="btn btn-primary btn-small" onclick="hireStaff('${id}')">雇佣 (${s.cost}铜)</button>`;
+    } else {
+      if (s.type === 'in_store') {
+        actionBtn = s.assigned 
+          ? `<button class="btn btn-danger btn-small" onclick="toggleAssignStaff('${id}')">撤回休息</button>` 
+          : `<button class="btn btn-success btn-small" onclick="toggleAssignStaff('${id}')">派驻店内</button>`;
+      } else {
+        actionBtn = `<span style="color:#55784b;font-size:11px;font-weight:600;">外派采集专员</span>`;
+      }
+    }
+
+    const tagText = s.type === 'in_store' ? '🏠 店内帮工' : '⛰️ 外派远征';
+    const subTagText = s.subType === 'chef' ? '🧑‍🍳 厨师/帮厨' : s.subType === 'sales' ? '💬 销售/接待' : '🔍 采集专员';
+    const statusColor = s.status === '偷懒中' ? '#d9534f' : s.status === '干活中' ? '#55784b' : '#9c8471';
+
+    html += `<div class="partner-card">
+      <div class="partner-top">
+        <div class="partner-avatar">${s.avatar}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
+            <span class="item-name">${s.name} <span style="font-size:11px;color:#a36e31;font-weight:700;">[${s.role}]</span></span>
+            <div style="display:flex;gap:4px;">
+              <span style="font-size:9px;background:#f8efdf;padding:2px 6px;border-radius:99px;color:#80572f;border:1px solid #e8d8c2;">${tagText}</span>
+              <span style="font-size:9px;background:#e9ae5e22;padding:2px 6px;border-radius:99px;color:#805b32;border:1px solid #ead4b4;">${subTagText}</span>
+            </div>
+          </div>
+          <div class="item-desc" style="margin-top:2px;">${s.desc}</div>
+          <div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap;">${[s.skill, s.skill2, s.skill3].filter(x => x && x.label).map(x => `<span style="font-size:9px;background:#e3eedb;color:#4f6b43;padding:2px 6px;border-radius:99px;border:1px solid #c6d8b8;">✦ ${x.label}</span>`).join('')}</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:4px;gap:8px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:140px;font-size:11px;color:#9c8471;">
+          状态: <span style="color:${statusColor};font-weight:700;">${s.status}</span> | 每日薪水: ${s.wage}铜 | 忠诚度: ${s.loyalty}点<br>
+          疲劳值: ${Math.floor(s.fatigue)}%
+          <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100, s.fatigue)}%;background:${s.fatigue >= 80 ? '#d9534f' : '#a8c89e'};"></div></div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          ${s.hired ? `<button class="btn btn-small" style="background:#fff2dd;border-color:#e8d8c2;font-size:10px;" onclick="feedStaffModal('${id}')">赠送员工餐</button>` : ''}
+          ${actionBtn}
+        </div>
+      </div>
+    </div>`;
+  }
+  document.getElementById('partnerManagementList').innerHTML = html || '<div style="font-size:12px;color:#9c8471;text-align:center;padding:12px;">当前标签分类下暂无员工。</div>';
+  const hint = document.getElementById('staffCountHint');
+  if (hint) hint.textContent = Object.keys(game.staff).length;
+
+  let rHtml = '';
+  for (const [id, r] of Object.entries(game.residents)) {
+    rHtml += `<div class="partner-card" style="flex-direction:row;align-items:center;"><div class="partner-avatar">${r.avatar}</div><div style="flex:1;"><div class="item-name">${r.name}</div><div class="item-desc">喜好: ${r.likes} | 好感度: ${r.favor}/100</div></div>${r.met ? `<button class="btn btn-success btn-small" onclick="giftResident('${id}')">赠送料理</button>` : '<span style="font-size:11px;color:#9c8471;">尚未结识</span>'}</div>`;
+  }
+  document.getElementById('residentList').innerHTML = rHtml;
+}
+
+function hireStaff(id) {
+  const s = game.staff[id];
+  if (game.money >= s.cost) {
+    game.money -= s.cost;
+    s.hired = true;
+    if (game.characters[id]) {
+      game.characters[id].isHired = true;
+    }
+    showToast(`成功雇佣员工: ${s.name} (${s.role})！`);
+    renderStaffManagement();
+    saveGame();
+  } else {
+    showToast('铜币不足！');
+  }
+}
+
+function toggleAssignStaff(id) {
+  const s = game.staff[id];
+  if (!s.hired) return;
+
+  s.assigned = !s.assigned;
+  s.status = s.assigned ? '干活中' : '空闲';
+  showToast(`${s.name} 已${s.assigned ? '派驻到店内开始工作' : '撤回休息'}`);
+  renderStaffManagement();
+  saveGame();
+}
+
+function feedStaffModal(id) {
+  const s = game.staff[id];
+  let options = '';
+  for (const [name, r] of Object.entries(game.recipes)) {
+    const qty = game.inventory[name] || 0;
+    if (r.unlocked && qty > 0) {
+      options += `<button class="btn btn-primary btn-small" style="margin:4px;" onclick="feedStaffAction('${id}', '${name}')">赠送 ${name} (拥有:${qty})</button>`;
+    }
+  }
+  if (!options) {
+    options = `<div style="font-size:12px;color:#9c8471;padding:10px;">背包中暂无做好的成品料理可作为员工餐。</div>`;
+  }
+  document.getElementById('modalBody').innerHTML = `<span class="modal-close" onclick="closeModal()">×</span><h2 class="modal-heading">慰劳员工: ${s.name}</h2><p class="modal-copy">向员工赠送美味料理可清空疲劳值并大幅提升忠诚度：</p><div style="margin-top:12px;">${options}</div>`;
+  document.getElementById('modal').classList.add('show');
+}
+
+function feedStaffAction(staffId, dishName) {
+  closeModal();
+  const s = game.staff[staffId];
+  if ((game.inventory[dishName] || 0) > 0) {
+    game.inventory[dishName]--;
+    s.fatigue = 0;
+    s.loyalty = Math.min(100, s.loyalty + 15);
+    s.status = s.assigned ? '干活中' : '空闲';
+    showToast(`成功向 ${s.name} 赠送了 ${dishName}！疲劳值已清空，忠诚度提升至 ${s.loyalty}点！`);
+    renderStaffManagement();
+    saveGame();
+  } else {
+    showToast('料理不足！');
+  }
+}
+
+// ==================== MARKET, EXPLORE, DECORATE & OTHERS ====================
+function switchMarketTab(tabKey) {
+  currentMarketTab = tabKey;
+  document.querySelectorAll('#marketTabs .tab-btn').forEach(btn => btn.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  renderMarketItems();
+}
+
+function renderMarket() {
+  renderMarketItems();
+
+  let sellHtml = '';
+  const salesMult = getSalesMultiplier().priceMult;
+  for (const [name, r] of Object.entries(game.recipes)) {
+    const count = game.inventory[name] || 0;
+    if (r.unlocked && count > 0) {
+      const finalP = Math.floor(r.sellPrice * salesMult);
+      sellHtml += `<div class="list-item"><div><span class="item-name">${name}</span><div class="item-desc">持有: ${count}个</div></div><div style="display:flex;gap:6px;align-items:center;"><span class="item-price">${finalP}铜/个</span><button class="btn btn-success btn-small" onclick="sellProduct('${name}', 1)">卖1个</button></div></div>`;
+    }
+  }
+  document.getElementById('sellList').innerHTML = sellHtml || '<div style="font-size:12px;color:#9c8471;text-align:center;padding:10px;">暂无做好的餐饮成品可供出售</div>';
+}
+
+function renderMarketItems() {
+  const cat = marketCategories[currentMarketTab];
+  let buyHtml = '';
+  for (const [item, price] of Object.entries(cat.items)) {
+    let descText = `仓库持有: ${game.inventory[item] || 0}`;
+    if (currentMarketTab === 'atmosphere' && atmosphereItemsEffect[item]) {
+      descText = `${atmosphereItemsEffect[item].desc} | 仓库持有: ${game.inventory[item] || 0}`;
+    }
+    buyHtml += `<div class="list-item"><div><span class="item-name">${item}</span><div class="item-desc">${descText}</div></div><div style="display:flex;gap:6px;align-items:center;"><span class="item-price">${price}铜</span><button class="btn btn-primary btn-small" onclick="buyItem('${item}', 1)">购买</button></div></div>`;
+  }
+  document.getElementById('marketItemList').innerHTML = buyHtml;
+}
+
+function buyItem(item, qty) {
+  const cost = (marketPrices[item] || 5) * qty;
+  if (game.money >= cost) {
+    game.money -= cost;
+    game.inventory[item] = (game.inventory[item] || 0) + qty;
+    
+    if (atmosphereItemsEffect[item]) {
+      const addedAtmosphere = atmosphereItemsEffect[item].val * qty;
+      game.atmosphere += addedAtmosphere;
+      showToast(`成功购买 ${item}！餐厅氛围值 +${addedAtmosphere}`);
+    } else {
+      showToast(`成功购买 ${item} ×${qty}`);
+    }
+
+    renderMarket();
+    renderShop(); renderMiniPhoneGuide();
+    updateLabDropdowns();
+    saveGame();
+  } else {
+    showToast('铜币不足！');
+  }
+}
+
+function sellProduct(name, qty) {
+  if ((game.inventory[name] || 0) >= qty) {
+    game.inventory[name] -= qty;
+    const salesMult = getSalesMultiplier().priceMult;
+    const price = Math.floor(game.recipes[name].sellPrice * salesMult) * qty;
+    game.money += price;
+    game.todayRevenue += price;
+    game.todaySold += qty;
+    game.totalSold += qty;
+    showToast(`售出 ${name} ×${qty}，获得 ${price} 铜币`);
+    renderMarket();
+    saveGame();
+  }
+}
+
+function quickSell() {
+  let soldTotal = 0, earnedTotal = 0;
+  const salesMult = getSalesMultiplier().priceMult;
+  for (const [name, r] of Object.entries(game.recipes)) {
+    const count = game.inventory[name] || 0;
+    if (r.unlocked && count > 0) {
+      game.inventory[name] = 0;
+      const unitP = Math.floor(r.sellPrice * salesMult);
+      const earn = count * unitP;
+      earnedTotal += earn;
+      soldTotal += count;
+      game.todayRevenue += earn;
+      game.todaySold += count;
+      game.totalSold += count;
+    }
+  }
+  if (soldTotal > 0) {
+    game.money += earnedTotal;
+    showToast(`一键售出 ${soldTotal} 份商品，总收入 ${earnedTotal} 铜币`);
+    renderShop(); renderMiniPhoneGuide();
+    saveGame();
+  } else {
+    showToast('没有可上架出售的餐饮成品');
+  }
+}
+
+function renderExplore() {
+  migrateGameData();
+  // 补丁：真实时间倒计时 —— 记录本次查看时刻
+  game._exploreViewedAt = Date.now();
+
+  let areaHtml = '';
+  for (const [name, area] of Object.entries(areas)) {
+    areaHtml += '<div class="list-item">' +
+      '<div><span class="item-name">' + name + '</span><div class="item-desc">' + area.desc + ' | 耗时:' + area.time + '秒</div></div>' +
+      '<button class="btn btn-primary btn-small" onclick="startSelectedExplore(\'' + name + '\')">以此阵容出征</button>' +
+    '</div>';
+  }
+  document.getElementById('areaList').innerHTML = areaHtml;
+
+  let activeHtml = '';
+  if (game.expeditions.length === 0) {
+    activeHtml = '<div style="font-size:12px;color:#9c8471;text-align:center;padding:10px;">当前没有队伍在野外探索</div>';
+  } else {
+    // 补丁：用真实时间补算“离开页面期间”流逝的秒数
+    const now = Date.now();
+    const awayMs = game._exploreViewedAt ? Math.max(0, now - game._exploreViewedAt) : 0;
+    for (const exp of game.expeditions) {
+      // 每次打开/刷新本页都推进截止时间（停留在别的页面时不推进，相当于“挂机不计时”）
+      if (awayMs > 0 && exp.endTime) exp.endTime = exp.endTime + awayMs;
+      const rem = Math.max(0, Math.ceil((exp.endTime - now) / 1000));
+      const teamNames = exp.team.map(function(id){ return game.characters[id] ? game.characters[id].name : id; }).join('、');
+      const isFinished = rem <= 0;
+
+      activeHtml += '<div class="list-item" style="background:#fff2dd;padding:8px;border-radius:8px;margin-bottom:6px;">' +
+        '<div><span class="item-name">' + exp.area + ' 远征队</span>' +
+        '<div class="item-desc">成员: ' + teamNames + '</div></div>' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+          '<span class="item-price">' + (isFinished ? '任务完成可领取!' : ('剩余 ' + rem + '秒')) + '</span>' +
+          (isFinished && !exp.claimed ? '<button class="btn btn-success btn-small" onclick="claimExpedition(\'' + exp.id + '\')">领取奖励</button>' : '<span style="font-size:11px;color:#9c8471;">进行中</span>') +
+        '</div></div>';
+    }
+    // 用完即清，下一次再打开本页重新计时
+    game._exploreViewededAt = null;
+    game._exploreViewedAt = null;
+  }
+  document.getElementById('activeExpeditionsList').innerHTML = activeHtml;
+}
+
+function toggleExploreMember(checkbox, charId) {
+  if (checkbox.checked) {
+    if (!selectedExpTeamIds.includes(charId)) {
+      selectedExpTeamIds.push(charId);
+    }
+  } else {
+    selectedExpTeamIds = selectedExpTeamIds.filter(id => id !== charId);
+  }
+}
+
+function startSelectedExplore(areaName) {
+  migrateGameData();
+  let validTeam = selectedExpTeamIds.filter(id => {
+    const c = game.characters[id];
+    return c && c.isHired && c.expeditionId === null && c.todayCount < 5;
+  });
+
+  if (validTeam.length < 2) {
+    showToast('每次远征至少需要勾选两名可用队员！');
+    return;
+  }
+
+  const area = areas[areaName];
+  
+  let timeMultiplier = 1.0;
+  let hasDouble = false;
+  // 遍历入选队员：expedition_speed 取最小耗时倍率(越小越快)，expedition_double 触发双倍掉落
+  for (let id of validTeam) {
+    const stf = game.staff[id];
+    if (!stf || !stf.hired) continue;
+    [stf.skill, stf.skill2, stf.skill3].forEach(sk => {
+      if (!sk || !sk.type) return;
+      if (sk.type === 'expedition_speed' && (sk.target === 'all' || sk.target === areaName)) {
+        timeMultiplier = Math.min(timeMultiplier, sk.value);
+      }
+      if (sk.type === 'expedition_double') hasDouble = true;
+    });
+  }
+  // 兜底：旧版雷恩写死 -50%
+  if (validTeam.includes('资深采集长雷恩') && game.staff['资深采集长雷恩'] && game.staff['资深采集长雷恩'].hired) {
+    timeMultiplier = Math.min(timeMultiplier, 0.5);
+    hasDouble = true;
+  }
+
+  const expeditionId = 'exp_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+  const endTime = Date.now() + Math.floor(area.time * timeMultiplier) * 1000;
+
+  for (let id of validTeam) {
+    game.characters[id].expeditionId = expeditionId;
+    game.characters[id].todayCount++;
+  }
+
+  game.expeditions.push({
+    id: expeditionId,
+    area: areaName,
+    endTime: endTime,
+    team: validTeam,
+    claimed: false,
+    doubleLoot: hasDouble
+  });
+
+  showToast(`远征小队成功出发前往 ${areaName}！`);
+  renderExplore();
+  saveGame();
+}
+
+function claimExpedition(expId) {
+  const exp = game.expeditions.find(e => e.id === expId);
+  if (!exp || exp.claimed) return;
+
+  exp.claimed = true;
+  const area = areas[exp.area];
+  
+  let lootMultiplier = exp.doubleLoot ? 2 : 1;
+
+  const lootCount = exp.team.length * (Math.floor(Math.random() * 2) + area.tier + 1) * lootMultiplier;
+  let earnedSummary = {};
+
+  for (let k = 0; k < lootCount; k++) {
+    const rewardItem = area.items[Math.floor(Math.random() * area.items.length)];
+    game.inventory[rewardItem] = (game.inventory[rewardItem] || 0) + 1;
+    earnedSummary[rewardItem] = (earnedSummary[rewardItem] || 0) + 1;
+  }
+
+  for (let id of exp.team) {
+    if (game.characters[id]) {
+      game.characters[id].expeditionId = null;
+    }
+  }
+
+  game.expeditions = game.expeditions.filter(e => e.id !== expId);
+
+  let summaryStr = Object.entries(earnedSummary).map(([k,v]) => `${k}×${v}`).join('、');
+  showToast(`远征凯旋！获得丰厚秘境物资：${summaryStr}`);
+  renderExplore();
+  updateLabDropdowns();
+  saveGame();
+}
+
+function giftResident(id) {
+  const r = game.residents[id];
+  const item = r.likes;
+  if ((game.inventory[item] || 0) > 0) {
+    game.inventory[item]--;
+    r.favor = Math.min(100, r.favor + 20);
+    showToast(`向 ${r.name} 赠送了 ${item}，好感度+20！`);
+    if (r.favor >= 50 && id === '精灵魔法师') {
+      game.recipes['月光莓果塔'].unlocked = true;
+      game.codex['月光莓果塔'].discovered = true;
+      showToast('触发羁绊！解锁了新食谱：月光莓果塔！');
+    }
+    renderStaffManagement();
+    saveGame();
+  } else {
+    showToast(`背包中没有 ${item}，无法赠送！`);
+  }
+}
+
+function renderDecorate() {
+  migrateGameData();
+  let html = '';
+  for (const [id, d] of Object.entries(game.decorations)) {
+    let actionBtn = '';
+    if (!d.bought) {
+      actionBtn = `<button class="btn btn-primary btn-small" onclick="buyDecorate('${id}')">购买解锁 (${d.cost}铜)</button>`;
+    } else if (d.level < d.maxLevel) {
+      const upgradeCost = d.cost * d.level;
+      actionBtn = `<button class="btn btn-success btn-small" onclick="upgradeDecorate('${id}')">升至Lv.${d.level+1} (${upgradeCost}铜)</button>`;
+    } else {
+      actionBtn = `<span style="color:#55784b;font-size:12px;font-weight:650;">已满级 (Lv.${d.maxLevel})</span>`;
+    }
+
+    html += `<div class="list-item">
+      <div>
+        <span class="item-name">${d.name} ${d.bought ? `(当前 Lv.${d.level})` : ''}</span>
+        <div class="item-desc">效果: ${d.effect}</div>
+      </div>
+      <div>${actionBtn}</div>
+    </div>`;
+  }
+  const decElem = document.getElementById('decorateList');
+  if (decElem) decElem.innerHTML = html;
+}
+
+function buyDecorate(id) {
+  const d = game.decorations[id];
+  if (game.money >= d.cost) {
+    game.money -= d.cost;
+    d.bought = true;
+    d.level = 1;
+    game.atmosphere += 20;
+    showToast(`成功购买/解锁: ${d.name}！餐厅氛围值提升！`);
+    renderDecorate();
+    renderShop(); renderMiniPhoneGuide();
+    saveGame();
+  } else {
+    showToast('铜币不足！');
+  }
+}
+
+function upgradeDecorate(id) {
+  const d = game.decorations[id];
+  const upgradeCost = d.cost * d.level;
+  if (game.money >= upgradeCost) {
+    game.money -= upgradeCost;
+    d.level++;
+    game.atmosphere += 25 * d.level;
+    showToast(`成功将 ${d.name} 升级至 Lv.${d.level}！被动加成与餐厅氛围大幅提升！`);
+    renderDecorate();
+    renderShop(); renderMiniPhoneGuide();
+    saveGame();
+  } else {
+    showToast(`升级所需铜币不足（需要 ${upgradeCost} 铜币）！`);
+  }
+}
+
+function renderInventory() {
+  let html = '';
+  for (const [item, qty] of Object.entries(game.inventory)) {
+    html += `<div class="list-item"><span class="item-name">${item}</span><span class="item-price">× ${qty}</span></div>`;
+  }
+  document.getElementById('inventoryList').innerHTML = html;
+}
+
+function renderQuest() {
+  let html = '';
+  for (const [id, q] of Object.entries(game.quests)) {
+    const currentCount = game.inventory[q.item] || 0;
+    const progressText = `${Math.min(q.target, currentCount)} / ${q.target}`;
+    html += `<div class="list-item"><div><span class="item-name">${id}</span><div class="item-desc">${q.desc} | 奖励: ${q.reward}铜</div><div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100, (currentCount/q.target)*100)}%"></div></div></div>${q.done ? '<span style="color:#55784b;font-size:12px;">已完成</span>' : `<button class="btn btn-success btn-small" onclick="claimQuest('${id}')">提交 (${progressText})</button>`}</div>`;
+  }
+  document.getElementById('questList').innerHTML = html;
+}
+
+function claimQuest(id) {
+  const q = game.quests[id];
+  const count = game.inventory[q.item] || 0;
+  if (count >= q.target && !q.done) {
+    game.inventory[q.item] -= q.target;
+    q.done = true;
+    game.money += q.reward; 
+    showToast(`委托【${id}】完成！获得奖励 ${q.reward} 铜币`);
+    renderQuest();
+    renderShop(); renderMiniPhoneGuide();
+    saveGame();
+  } else {
+    showToast(`材料不足，集齐 ${q.target} 个 ${q.item} 即可提交`);
+  }
+}
+
+function renderCodex() {
+  let html = '';
+  for (const [name, c] of Object.entries(game.codex)) {
+    html += `<div class="list-item"><div><span class="item-name">${c.discovered ? name : '???'}</span><div class="item-desc">${c.discovered ? c.desc : '通过灵光一闪研发解锁'}</div></div></div>`;
+  }
+  document.getElementById('codexList').innerHTML = html;
+}
+
+function renderStatus() {
+  document.getElementById('statusData').innerHTML = `
+    <div class="list-item"><span class="item-name">店铺名称</span><span class="item-price">${game.shopName}</span></div>
+    <div class="list-item"><span class="item-name">经营天数</span><span class="item-price">第 ${game.day} 天</span></div>
+    <div class="list-item"><span class="item-name">餐厅氛围值</span><span class="item-price">${game.atmosphere} 点</span></div>
+    <div class="list-item"><span class="item-name">累计制作</span><span class="item-price">${game.totalBaked} 份</span></div>
+    <div class="list-item"><span class="item-name">累计售出</span><span class="item-price">${game.totalSold} 份</span></div>
+    <div class="list-item"><span class="item-name">当前资产</span><span class="item-price">${Math.floor(game.money)} 铜币</span></div>
+  `;
+
+  let achHtml = '';
+  for (const [name, a] of Object.entries(game.achievements)) {
+    achHtml += `<div class="list-item"><span class="item-name">${a.done ? '已完成' : '未完成'} ${name}</span><div class="item-desc">${a.desc}</div></div>`;
+  }
+  document.getElementById('achievementList').innerHTML = achHtml;
+}
+
+// ==================== SETTINGS & SAVE / EXPORT / IMPORT (EXACT USER REQUEST) ====================
+function openSettings() {
+  const lastSaveTimeStr = new Date(game.lastSave || Date.now()).toLocaleString();
+  document.getElementById('modalBody').innerHTML = `
+    <span class="modal-close" onclick="closeModal()">×</span>
+    <h2 class="modal-heading">设置与存档管理中心</h2>
+    <p class="modal-copy">管理你的游戏存档进度、切换存档槽位，或存入/读取/导出/导入存档文件进行数据备份。</p>
+    
+    <div class="modal-section" style="margin-top:8px;">
+      <b>当前存档状态预览:</b>
+      <div style="font-size:11px;color:#80572f;margin-top:6px;background:#fff5e3;padding:8px;border-radius:8px;border:1px solid #e8d8c2;">
+        当前选中: <b>${currentSlot === 'slot1' ? '存档一' : currentSlot === 'slot2' ? '存档二' : '存档三'}</b> | 店铺: <b>${game.shopName}</b><br>
+        经营天数: <b>第${game.day}天 (${timeNames[game.timeOfDay]})</b> | 铜币: <b>${Math.floor(game.money)}</b><br>
+        最后存档时间: <b>${lastSaveTimeStr}</b>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <b>当前店铺名称修改:</b>
+      <div style="display:flex;gap:8px;margin-top:6px;">
+        <input type="text" id="renameInput" value="${game.shopName}" style="flex:1;padding:8px;border-radius:8px;border:1px solid #e8d8c2;background:#fffaf0;font-size:12px;" />
+        <button class="btn btn-primary btn-small" onclick="saveShopName()">修改名称</button>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <b>存档一、存档二、存档三（手动存入与读取数据）：</b>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;background:#fff5e3;padding:8px 10px;border-radius:10px;border:1px solid #e8d8c2;">
+          <span style="font-weight:600;font-size:12px;color:#80572f;">存档一 ${currentSlot==='slot1'?'(当前选中)':''}</span>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-primary btn-small" onclick="slotActionStore('slot1')">存入</button>
+            <button class="btn btn-success btn-small" onclick="slotActionRead('slot1')">读取</button>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;background:#fff5e3;padding:8px 10px;border-radius:10px;border:1px solid #e8d8c2;">
+          <span style="font-weight:600;font-size:12px;color:#80572f;">存档二 ${currentSlot==='slot2'?'(当前选中)':''}</span>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-primary btn-small" onclick="slotActionStore('slot2')">存入</button>
+            <button class="btn btn-success btn-small" onclick="slotActionRead('slot2')">读取</button>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;background:#fff5e3;padding:8px 10px;border-radius:10px;border:1px solid #e8d8c2;">
+          <span style="font-weight:600;font-size:12px;color:#80572f;">存档三 ${currentSlot==='slot3'?'(当前选中)':''}</span>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-primary btn-small" onclick="slotActionStore('slot3')">存入</button>
+            <button class="btn btn-success btn-small" onclick="slotActionRead('slot3')">读取</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <b>存档文件导入与导出 (JSON备份):</b>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-small" onclick="exportSaveJSON()">📥 导出存档文件 (.json)</button>
+        <label class="btn btn-success btn-small" style="cursor:pointer;margin:0;display:inline-flex;align-items:center;">
+          📤 导入存档文件 <input type="file" id="importFile" accept=".json" style="display:none;" onchange="importSaveJSON(event)">
+        </label>
+      </div>
+    </div>
+
+    <div class="modal-section" style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-danger btn-small" onclick="resetGameSlot()">重置当前存档</button>
+    </div>
+  `;
+  document.getElementById('modal').classList.add('show');
+}
+
+function slotActionStore(slotKey) {
+  currentSlot = slotKey;
+  // 把当前店铺名作为快照绑定到这个存档槽，读取时只认它自己保存的名字
+  try { localStorage.setItem('fantasyRestaurant_' + slotKey + '_name', game.shopName); } catch(e) {}
+  saveGame();
+  showToast(`已成功将当前游戏进度【存入】到 ${slotKey === 'slot1' ? '存档一' : slotKey === 'slot2' ? '存档二' : '存档三'}！`);
+  openSettings(); // refresh modal preview
+}
+
+function slotActionRead(slotKey) {
+  currentSlot = slotKey;
+  loadGame();
+  showToast(`已成功【读取】${slotKey === 'slot1' ? '存档一' : slotKey === 'slot2' ? '存档二' : '存档三'} 的数据！`);
+  closeModal();
+ // 读档后若店铺是开门状态，重置保底计时，3秒后保底刷一个
+if (game.shopOpen) {
+  game._lastSpawnTry = Date.now();
+  setTimeout(function(){ if (game.shopOpen && game.customers.length === 0) { toggleShop(); game.shopOpen = true; renderShop(); } }, 3000);
+}
+}
+
+function saveShopName() {
+  const val = document.getElementById('renameInput').value.trim();
+  if (val) {
+    game.shopName = val;
+    showToast(`店铺名称已更改为: ${val}`);
+    renderPage(document.querySelector('.page.active').id);
+    saveGame();
+    closeModal();
+  }
+}
+
+function manualSave() {
+  saveGame();
+  showToast('当前游戏进度已成功手动保存！');
+  openSettings();
+}
+
+function manualNextDay() {
+  if (confirm('确定要手动进入下一天吗？（将扣除员工每日薪水并重置打水次数）')) {
+    executeNextDayTransition();
+  }
+}
+
+function executeNextDayTransition() {
+  game.day++;
+  game.timeOfDay = 0;
+  game.waterTodayCount = 0;
+  game.customers = [];
+
+  let totalWage = 0;
+  for (let sId in game.staff) {
+    const s = game.staff[sId];
+    if (s.hired) {
+      totalWage += s.wage;
+      if (s.assigned) {
+        s.fatigue = Math.min(100, s.fatigue + 15);
+        if (s.fatigue >= 100) {
+          s.status = '偷懒中';
+        }
+      }
+    }
+  }
+
+  let wagePaid = false;
+  if (game.money >= totalWage) {
+    game.money -= totalWage;
+    game.todayCost += totalWage;
+    wagePaid = true;
+  } else {
+    for (let sId in game.staff) {
+      game.staff[sId].status = '偷懒中';
+    }
+  }
+
+  showToast(`☀️ 已经手动进入第 ${game.day} 天早晨！已自动扣除员工薪水 ${totalWage} 铜币。`);
+  renderShop(); renderMiniPhoneGuide();
+  saveGame();
+}
+
+function closeShopAndSettle() {
+  game.shopOpen = false;
+  game.customers = [];
+  
+  let totalWage = 0;
+  for (let sId in game.staff) {
+    const s = game.staff[sId];
+    if (s.hired) {
+      totalWage += s.wage;
+      if (s.assigned) {
+        s.fatigue = Math.min(100, s.fatigue + 20);
+        if (s.fatigue >= 100) {
+          s.status = '偷懒中';
+        }
+      }
+    }
+  }
+  
+  let wagePaid = false;
+  if (game.money >= totalWage) {
+    game.money -= totalWage;
+    game.todayCost += totalWage;
+    wagePaid = true;
+  } else {
+    for (let sId in game.staff) {
+      game.staff[sId].status = '偷懒中';
+    }
+  }
+  
+  const rev = game.todayRevenue;
+  const cost = game.todayCost;
+  const profit = rev - cost;
+  
+  const todayRevStored = game.todayRevenue;
+  const todayCostStored = game.todayCost;
+  
+  game.waterTodayCount = 0;
+  game.todayRevenue = 0;
+  game.todayCost = 0;
+  game.todaySold = 0;
+  game.day++;
+  game.timeOfDay = 0;
+  
+  document.getElementById('modalBody').innerHTML = `
+    <span class="modal-close" onclick="closeModal(); renderShop(); renderMiniPhoneGuide();">×</span>
+    <h2 class="modal-heading">🌙 营业打烊结算报表</h2>
+    <p class="modal-copy">第 ${game.day - 1} 天营业圆满结束，今日店铺各项经营收支统计如下：</p>
+    <div class="modal-section" style="margin-top:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px;"><span style="color:#9c8471;">今日总营业额:</span><b style="color:#805b32;">${todayRevStored} 铜币</b></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px;"><span style="color:#9c8471;">今日总支出/成本:</span><b style="color:#d9534f;">${todayCostStored} 铜币</b></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px;"><span style="color:#9c8471;">今日净利润:</span><b style="color:${profit>=0?'#55784b':'#d9534f'};">${profit} 铜币</b></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:#9c8471;">员工薪水扣除:</span><b>${wagePaid ? totalWage + ' 铜币 (已扣除)' : '铜币不足，全员罢工抗议中！'}</b></div>
+    </div>
+    <div class="modal-section">
+      <b>员工疲劳与状态更新:</b>
+      <div style="font-size:11px;color:#80572f;margin-top:6px;background:#fff5e3;padding:8px;border-radius:8px;border:1px solid #e8d8c2;">
+        派驻员工今日疲劳值已结算。全新的一天（第${game.day}天 · 早晨）已到来，水井打水次数已重置！
+      </div>
+    </div>
+    <div class="modal-section" style="display:flex;justify-content:flex-end;">
+      <button class="btn btn-primary btn-small" onclick="closeModal(); renderShop(); renderMiniPhoneGuide(); saveGame();">确认并进入新的一天</button>
+    </div>
+  `;
+  document.getElementById('modal').classList.add('show');
+  renderShop(); renderMiniPhoneGuide();
+  saveGame();
+}
+
+function exportSaveJSON() {
+  saveGame();
+  const dataStr = JSON.stringify(game, null, 2);
+  const blob = new Blob([dataStr], {type: "application/json"});
+  const url = URL.createObjectURL(blob);
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.href = url;
+  downloadAnchor.download = `fantasy_restaurant_${currentSlot}_day${game.day}.json`;
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  document.body.removeChild(downloadAnchor);
+  URL.revokeObjectURL(url);
+  showToast('存档数据已成功导出为 JSON 文件！');
+}
+
+function importSaveJSON(event) {
+  const fileReader = new FileReader();
+  if (event.target.files[0]) {
+    fileReader.readAsText(event.target.files[0], "UTF-8");
+    fileReader.onload = function(e) {
+      try {
+        const importedData = JSON.parse(e.target.result);
+        if (importedData && importedData.money !== undefined && importedData.day !== undefined) {
+          game = importedData;
+          migrateGameData();
+          saveGame();
+          showToast('成功导入存档文件！页面已刷新。');
+          closeModal();
+          renderPage(document.querySelector('.page.active').id);
+        } else {
+          alert('导入失败：文件格式不符合幻想餐饮物语的存档结构。');
+        }
+      } catch (err) {
+        alert('解析 JSON 存档文件出错：' + err.message);
+      }
+    };
+  }
+}
+
+function resetGameSlot() {
+  if (confirm('确定要清除当前存档槽位并重新开始新旅程吗？')) {
+    localStorage.removeItem('fantasyRestaurant_' + currentSlot);
+    location.reload();
+  }
+}
+
+// ==================== GAME TICK & AUTOMATION ====================
+function gameTick() {
+  // 用“截止时间点”计算剩余秒数，而非每秒减1：
+  // 切后台、停标签页、切页面导致的停顿都不会被扣掉，只按真实流逝时间计时
+  const now = Date.now();
+
+  if (game.shopOpen) {
+    // 原有：每秒25%概率刷客（约每4秒一个）
+    if (Math.random() < 0.25 && game.customers.length < 4) {
+      spawnCustomer();
+    }
+    // 保底：开门状态下超过6秒没来客人，强制刷一个（避免"没人进店"卡死）
+    if (game.customers.length === 0) {
+      game._lastSpawnTry = game._lastSpawnTry || now;
+      if (now - game._lastSpawnTry > 6000) {
+        spawnCustomer();
+        game._lastSpawnTry = now;
+      }
+    } else {
+      game._lastSpawnTry = now;
+    }
+  }
+
+  for (let i = game.customers.length - 1; i >= 0; i--) {
+    const c = game.customers[i];
+    // 补丁：确保老客人都带截止时间点（兼容旧存档）
+    c.orderDeadline = Number.isFinite(c.orderDeadline) ? c.orderDeadline : now + Math.max(1, c.orderTimer || 0) * 1000;
+    c.foodDeadline = Number.isFinite(c.foodDeadline) ? c.foodDeadline : now + Math.max(1, c.foodTimer || 0) * 1000;
+
+    if (c.state === 'ordering') {
+      // 剩余秒数 = 截止时间 - 当前真实时间（不是 -1）
+      const remainingOrder = Math.floor((c.orderDeadline - now) / 1000);
+      c.orderTimer = Math.max(0, Number.isFinite(remainingOrder) ? remainingOrder : 0);
+      if (c.orderTimer <= 0) {
+        showToast('【' + c.name + '】失去耐心，点单超时生气离开了！');
+        game.customers.splice(i, 1);
+      }
+    } else if (c.state === 'waiting_food') {
+      const remainingFood = Math.floor((c.foodDeadline - now) / 1000);
+      c.foodTimer = Math.max(0, Number.isFinite(remainingFood) ? remainingFood : 0);
+      if (c.foodTimer <= 0) {
+        showToast('【' + c.name + '】等待上菜超时，气愤地摔门离去了！');
+        removeCustomer(c.id);
+      }
+    }
+  }
+
   for (let st of ['oven', 'bar', 'stove']) {
     let arr = st === 'oven' ? game.ovens : st === 'bar' ? game.bars : game.stoves;
     for (let i = 0; i < arr.length; i++) {
@@ -2862,7 +4281,11 @@ function slotActionRead(slotKey) {
   loadGame();
   showToast(`已成功【读取】${slotKey === 'slot1' ? '存档一' : slotKey === 'slot2' ? '存档二' : '存档三'} 的数据！`);
   closeModal();
-  renderPage(document.querySelector('.page.active').id);
+ // 读档后若店铺是开门状态，重置保底计时，3秒后保底刷一个
+if (game.shopOpen) {
+  game._lastSpawnTry = Date.now();
+  setTimeout(function(){ if (game.shopOpen && game.customers.length === 0) { toggleShop(); game.shopOpen = true; renderShop(); } }, 3000);
+}
 }
 
 function saveShopName() {
@@ -3043,21 +4466,36 @@ function gameTick() {
   const now = Date.now();
 
   if (game.shopOpen) {
+    // 原有：每秒25%概率刷客（约每4秒一个）
     if (Math.random() < 0.25 && game.customers.length < 4) {
       spawnCustomer();
+    }
+    // 保底：开门状态下超过12秒没来客人，强制刷一个（避免"没人进店"卡死）
+    if (game.customers.length === 0) {
+      game._lastSpawnTry = game._lastSpawnTry || Date.now();
+      if (Date.now() - game._lastSpawnTry > 6000) {
+        spawnCustomer();
+        game._lastSpawnTry = Date.now();
+      }
+    } else {
+      game._lastSpawnTry = Date.now();
     }
   }
 
   for (let i = game.customers.length - 1; i >= 0; i--) {
     const c = game.customers[i];
+    c.orderDeadline = Number.isFinite(c.orderDeadline) ? c.orderDeadline : now + Math.max(1, c.orderTimer || 0) * 1000;
+    c.foodDeadline = Number.isFinite(c.foodDeadline) ? c.foodDeadline : now + Math.max(1, c.foodTimer || 0) * 1000;
     if (c.state === 'ordering') {
-      c.orderTimer -= 1;
+      const remainingOrder = Math.floor((c.orderDeadline - now) / 1000);
+      c.orderTimer = Math.max(0, Number.isFinite(remainingOrder) ? remainingOrder : 0);
       if (c.orderTimer <= 0) {
         showToast(`【${c.name}】失去耐心，点单超时生气离开了！`);
         game.customers.splice(i, 1);
       }
     } else if (c.state === 'waiting_food') {
-      c.foodTimer -= 1;
+      const remainingFood = Math.floor((c.foodDeadline - now) / 1000);
+      c.foodTimer = Math.max(0, Number.isFinite(remainingFood) ? remainingFood : 0);
       if (c.foodTimer <= 0) {
         showToast(`【${c.name}】等待上菜超时，气愤地摔门离去了！`);
         removeCustomer(c.id);
@@ -3106,7 +4544,32 @@ function toggleShop() {
   game.shopOpen = !game.shopOpen;
   if (game.shopOpen && !game.achievements['开门大吉'].done) {
     game.achievements['开门大吉'].done = true;
-    showToast('成就解锁：开门大吉！');
+  }
+  // 开门立刻刷一个保底客人（优先烘焙区/黑麦粗面包），杜绝"点了开门却没人来"
+  if (game.shopOpen && game.customers.length === 0) {
+    (function(){
+      var ovenOnly = Object.keys(game.recipes).filter(function(n){ return game.recipes[n].unlocked && game.recipes[n].station === 'oven'; });
+      var chosen = ovenOnly.length ? ovenOnly[0] : null;
+      if (!chosen) { var allU = Object.keys(game.recipes).filter(function(n){ return game.recipes[n].unlocked; }); chosen = allU.length ? allU[0] : null; }
+      if (chosen) {
+        spawnCustomer();
+        if (game.customers.length === 0) {
+          var ctypes = ['普通旅人','饥饿冒险者','贵族食客','精灵学者','吟游诗人'];
+          var si = getSalesMultiplier();
+          var op = Math.max(1, Math.floor(15 * si.patienceMult));
+          var tb = (game.decorations['秘境堂食木桌椅'] && game.decorations['秘境堂食木桌椅'].bought) ? (1 + 0.15 * game.decorations['秘境堂食木桌椅'].level) : 1.0;
+          var fp = Math.max(1, Math.floor(60 * tb * si.patienceMult));
+          game.customers.push({
+            id: 'cust_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+            name: ctypes[Math.floor(Math.random()*ctypes.length)],
+            wantDish: chosen, state: 'ordering',
+            orderTimer: op, orderDeadline: Date.now()+op*1000, maxOrderTimer: op,
+            foodTimer: fp, maxFoodTimer: fp, assignedSlot: null
+          });
+          tryAutoAcceptBySales(game.customers[game.customers.length-1]);
+        }
+      }
+    })();
   }
   renderShop(); renderMiniPhoneGuide();
   saveGame();
@@ -3159,10 +4622,85 @@ function closeModal() {
   document.getElementById('modal').classList.remove('show');
 }
 
-loadGame();
-migrateGameData();
-renderShop(); renderMiniPhoneGuide();
-setInterval(gameTick, 1000);
+// 初始化存档与首屏。开机动画由文件末尾的 bootSplash 统一启动。
+try {
+  loadGame();
+  migrateGameData();
+  renderShop();
+  renderMiniPhoneGuide();
+} catch (err) {
+  console.error('游戏初始化异常：', err);
+}
+
+// 独立制作计时器：不依赖 gameTick 内部其他逻辑是否报错。
+// 每秒根据绝对截止时间推进烤箱、吧台、灶台，并把完成品转换为可点击上菜状态。
+function processStationTimers(now) {
+  const stations = [
+    ['oven', game.ovens],
+    ['bar', game.bars],
+    ['stove', game.stoves]
+  ];
+  let changed = false;
+
+  stations.forEach(([stationType, slots]) => {
+    if (!Array.isArray(slots)) return;
+    slots.forEach((slot, index) => {
+      if (!slot || !slot.baking) return;
+      const deadline = Number(slot.endTime);
+      if (!Number.isFinite(deadline) || deadline > now) return;
+
+      const dishName = slot.baking;
+      slot.baking = null;
+      slot.finishedDish = dishName;
+      slot.endTime = 0;
+      game.totalBaked = (Number(game.totalBaked) || 0) + 1;
+      if (game.codex && game.codex[dishName]) game.codex[dishName].discovered = true;
+      changed = true;
+      showToast(`${stationType === 'oven' ? '烤箱' : stationType === 'bar' ? '吧台' : '灶台'}的【${dishName}】制作完成了！点击成品即可上菜。`);
+
+      // 保留原有自动上菜能力；没有自动上菜伙伴时，成品留在槽位等待手动点击。
+      const staff = game.staff || {};
+      const helper = staff['初级帮厨老布'];
+      let autoServe = false;
+      try {
+        autoServe = (typeof hasActiveSkillType === 'function' && hasActiveSkillType('chef_autoserve')) ||
+          !!(helper && helper.hired && helper.assigned && helper.status !== '偷懒中');
+      } catch (_) {}
+      if (autoServe) {
+        slot.servedBy = '自动上菜';
+        try { serveDish(stationType, index); } catch (err) { console.error('自动上菜异常：', err); }
+      }
+    });
+  });
+  return changed;
+}
+
+// 每秒心跳：制作完成判定先执行，再运行原游戏逻辑，最后刷新当前页。
+// 即使原 gameTick 某一段出现异常，也不会阻断制作计时和成品交付状态。
+setInterval(() => {
+  const now = Date.now();
+  try { processStationTimers(now); } catch (err) { console.error('制作计时异常：', err); }
+  try { gameTick(); } catch (err) { console.error('游戏主时钟异常：', err); }
+  if (document.visibilityState === 'visible') {
+    const activeId = document.querySelector('.page.active')?.id || 'page-shop';
+    const active = document.activeElement;
+    const editing = active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName);
+    if (!editing) {
+      try { renderPage(activeId); } catch (err) { console.error('倒计时界面刷新异常：', err); }
+    }
+  }
+  try { saveGame(); } catch (err) { console.error('自动存档异常：', err); }
+}, 1000);
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    const now = Date.now();
+    try { processStationTimers(now); } catch (err) { console.error('恢复制作计时异常：', err); }
+    const activeId = document.querySelector('.page.active')?.id || 'page-shop';
+    try { renderPage(activeId); } catch (err) { console.error('恢复页面刷新异常：', err); }
+    try { saveGame(); } catch (_) {}
+  }
+});
 
 
 function renderMiniPhoneGuide() {
@@ -3211,7 +4749,29 @@ function handlePhoneContainerClick(e) {
   }
 }
 
-startSplash();
+// 开屏启动兜底：明确恢复遮罩可见状态，避免移动端 WebView 沿用旧页面的隐藏/透明状态。
+(function bootSplash() {
+  const splash = document.getElementById('splash-screen');
+  const nameModal = document.getElementById('name-modal');
+  const topBar = document.getElementById('game-top-bar');
+  const mainContent = document.getElementById('game-main-content');
+  const bottomNav = document.getElementById('game-bottom-nav');
+  const miniPhone = document.getElementById('miniPhone');
+
+  if (splash) {
+    splash.style.display = 'flex';
+    splash.style.visibility = 'visible';
+    splash.style.opacity = '1';
+    splash.classList.remove('fade-out');
+  }
+  if (nameModal) nameModal.classList.remove('show');
+  if (topBar) topBar.style.display = 'none';
+  if (mainContent) mainContent.style.display = 'none';
+  if (bottomNav) bottomNav.style.display = 'none';
+  if (miniPhone) miniPhone.style.display = 'none';
+
+  startSplash();
+})();
 
 </script>
 </body>
